@@ -15,7 +15,6 @@ from librespot.core import Session
 from librespot.metadata import TrackId
 from librespot.zeroconf import ZeroconfServer
 from librespot.audio import AbsChunkedInputStream
-from spotipy.oauth2 import SpotifyClientCredentials
 
 from bot.search import is_url
 from bot.vocal.track_dataclass import Track
@@ -60,9 +59,12 @@ class SpotifySessions:
             # Spotify API
             if SPOTIFY_API_ENABLED:
                 self.sp = spotipy.Spotify(
-                    auth_manager=SpotifyClientCredentials(
+                    auth_manager=SpotifyOAuth(
                         client_id=self.config.client_id,
                         client_secret=self.config.client_secret,
+                        redirect_uri=self.config.redirect_uri,
+                        scope="playlist-read-private playlist-read-collaborative",
+                        cache_path=".spotify_cache",
                     )
                 )
 
@@ -320,8 +322,10 @@ class Spotify:
                 )
 
             for item in playlist_API["items"]:
-                if item and "track" in item and item["track"]:
-                    tracks.append(self.get_track(item["track"]))
+                # Spotify changed playlist entries from "track" to "item".
+                track_api = (item.get("item") or item.get("track")) if item else None
+                if track_api and track_api.get("type", "track") == "track":
+                    tracks.append(self.get_track(track_api))
 
         # ARTIST
         elif type == "artist":

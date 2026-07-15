@@ -55,7 +55,15 @@ class Search(commands.Cog):
                         playlist_id=playlist_id,
                         offset=offset,
                     )
-                    items = [t["track"] for t in playlist_tracks["items"]]
+                    items = []
+                    for playlist_item in playlist_tracks["items"]:
+                        item = (
+                            playlist_item.get("item") or playlist_item.get("track")
+                            if playlist_item
+                            else None
+                        )
+                        if item and item.get("type", "track") == "track":
+                            items.append(item)
                     cover = (
                         playlist_info["images"][0]["url"]
                         if playlist_info.get("images")
