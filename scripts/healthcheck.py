@@ -392,7 +392,10 @@ def send_webhook(
     request = urllib_request.Request(
         ADMIN_ALERT_WEBHOOK,
         data=payload,
-        headers={"Content-Type": "application/json"},
+        headers={
+            "Content-Type": "application/json",
+            "User-Agent": "Ugoku-Monitor/1.0",
+        },
         method="POST",
     )
     try:

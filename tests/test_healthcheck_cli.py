@@ -190,6 +190,7 @@ class HealthcheckIncidentLifecycleTests(unittest.TestCase):
             payload["content"],
             "Ugoku OUTAGE: incident=incident-123 reason=gateway_down exit=3",
         )
+        self.assertEqual(request.get_header("User-agent"), "Ugoku-Monitor/1.0")
         self.assertEqual(
             urlopen.call_args.kwargs["timeout"], healthcheck.HEALTH_ALERT_TIMEOUT
         )
