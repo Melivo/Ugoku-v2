@@ -157,8 +157,11 @@ Erwartung: keine SIGKILL-bedingten Reste nach `TimeoutStopSec=25`; T8-Tests `clo
 - Watchdog-Hook-Uebung: `incident_id` `7223c2d2-164f-4460-a37e-cb755854cb79`; OUTAGE, RESTART und RECOVERY wurden jeweils mit `delivered=true` belegt.
 - Recovery: `fault_started_at_wall` `2026-08-05T18:13:30.413482+00:00`, `ended_at_wall` `2026-08-05T18:16:53.327133+00:00`, Dauer rund 203 Sekunden und damit innerhalb des 300-Sekunden-SLA.
 - Hinweis: Die Uebung nutzte den installierten `--on-failure`-Hook und einen kontrollierten systemd-Restart; ein echter Event-Loop-Stall wurde nicht erzeugt.
+- Gateway-Uebung A1: zwei isolierte `GATEWAY_DOWN`-Strikes, Incident `d97030d0-e8c5-436a-85d3-16a03598dbaf`; OUTAGE, RESTART und RECOVERY jeweils `delivered=true`; Recovery nach rund 17 Sekunden.
+- Ressourcen-Uebung A3: zwei isolierte `RESOURCE_BLOCKED`-Strikes mit Grund `ffmpeg`, Incident `3b3fe861-7df3-46a8-b89c-440a0ab8141c`; OUTAGE, RESTART und RECOVERY jeweils `delivered=true`; Recovery nach rund 17 Sekunden.
+- Shutdown-Uebung A5: Der bei der ersten Uebung erkannte Pycord-Signalfehler wurde mit `381626c` behoben. Der anschliessende kontrollierte Restart war fehlerfrei; keine `Event loop stopped`, Pending-Task-, unclosed-session- oder verwaisten FFmpeg-/Librespot-Prozesse im Nachweis.
 
-**Aktueller Status: T10 teilweise abgenommen.** A2 sowie die Basis-Readiness sind produktiv nachgewiesen. A1, A3, die Berechtigungs-Negativprobe fuer `/health` und die vollstaendige Shutdown-Uebung bleiben offen.
+**Aktueller Status: T10 weitgehend abgenommen.** A1, A2 (Hook-Simulation), A3, A5 und die Basis-Readiness sind produktiv nachgewiesen. Offen bleibt die Berechtigungs-Negativprobe fuer `/health`; ein echter Event-Loop-Stall ist optional, da der installierte Hook-Pfad bereits abgenommen wurde.
 
 | Kriterium | Staging | Production |
 |---|---|---|
