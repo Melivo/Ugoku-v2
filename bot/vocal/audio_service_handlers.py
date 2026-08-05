@@ -22,7 +22,16 @@ def get_error_message(e: Exception) -> str:
         return "No onsei has been found !"
     if isinstance(e, SpotifyException) and e.http_status == 404:
         # For Spotify
-        return "Content not found! Perhaps you are trying to play a private playlist ?"
+        return (
+            "Spotify could not expose this playlist to the bot. It may be private, "
+            "unavailable, or a personalized Mix. Add its tracks to a regular playlist "
+            "and try that URL."
+        )
+    if isinstance(e, SpotifyException) and e.http_status == 403:
+        return (
+            "Spotify denied the bot access to this playlist's track list. It may be "
+            "region- or age-restricted, or unavailable to the bot's Spotify account."
+        )
     if isinstance(e, (InvalidUrlClientError, ValueError)):
         return "Invalid URL !"
 
