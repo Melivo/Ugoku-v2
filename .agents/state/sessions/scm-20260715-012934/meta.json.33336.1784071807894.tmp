@@ -1,0 +1,10 @@
+{
+  "sid": "scm-20260715-012934",
+  "schemaVersion": 1,
+  "category": "release",
+  "status": "active",
+  "gatesPassedBy": [],
+  "pendingPeerReviews": [],
+  "createdAt": "2026-07-14T23:30:07.883Z",
+  "workflow": "scm"
+}

@@ -1,0 +1,64 @@
+{
+  "id": "plan-20260525-api-bridge-structure",
+  "title": "First-party API Bridge Structure",
+  "status": "Completed",
+  "workflow": "ultrawork",
+  "scope": {
+    "included": [
+      "provider-registry",
+      "global-non-secret-profiles",
+      "case-local-allowlists",
+      "status-readiness-merge",
+      "preflight-report"
+    ],
+    "excluded": [
+      "oauth-token-exchange",
+      "refresh-token-storage",
+      "provider-data-operations",
+      "third-party-mcp-installation"
+    ]
+  },
+  "paths": {
+    "global_profiles": "%LOCALAPPDATA%/pros/integrations/profiles.json",
+    "case_allowlist": ".pros/integrations.json",
+    "secrets": "OS credential store only"
+  },
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Define provider registry and capability policy model",
+      "priority": "P0",
+      "status": "DONE"
+    },
+    {
+      "id": 2,
+      "title": "Validate global non-secret integration profiles",
+      "priority": "P0",
+      "status": "DONE"
+    },
+    {
+      "id": 3,
+      "title": "Read case-local non-secret allowlists",
+      "priority": "P0",
+      "status": "DONE"
+    },
+    {
+      "id": 4,
+      "title": "Merge provider, profile, credential contract, and case policy into readiness status",
+      "priority": "P0",
+      "status": "DONE"
+    },
+    {
+      "id": 5,
+      "title": "Expose profile list and preflight CLI structure",
+      "priority": "P1",
+      "status": "DONE"
+    },
+    {
+      "id": 6,
+      "title": "Run verification and QA gates",
+      "priority": "P0",
+      "status": "DONE"
+    }
+  ]
+}

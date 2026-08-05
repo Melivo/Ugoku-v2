@@ -1,0 +1,366 @@
+{
+  "planId": "004-skill-workflow-qualitaetsreview",
+  "sessionId": "2026-05-11-skill-review",
+  "title": "Qualitäts- und Vollständigkeitsreview aller Non-ProSelect Skills und Workflows",
+  "status": "Active",
+  "created": "2026-05-11",
+  "complexity": "Complex",
+  "goal": "Systematische Überprüfung aller 28 Non-ProSelect Skills und 32 Workflows auf inhaltliche Vollständigkeit, strukturelle Qualität, Konsistenz und Praxisrelevanz gemäß den Projektkonventionen",
+  "agents": ["qa", "review"],
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Review: Allgemeine Skills (3)",
+      "agent": "qa",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [],
+      "files": [
+        "allgemein-dokumentaenderungen-pruefen",
+        "allgemein-entscheidungsbriefing",
+        "allgemein-meeting-ergebnisregister"
+      ],
+      "criteria": [
+        "SKILL.md vorhanden",
+        "Frontmatter vollständig (description, trigger)",
+        "Struktur: When to use / When NOT to use / Core Rules / Output Format",
+        "Keine leeren Sektionen",
+        "Keine broken internen Links",
+        "Anweisungen sind wertvoll für aktuelle tatsächliche Use Cases"
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Review: Betrieb Skills (3)",
+      "agent": "qa",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [],
+      "files": [
+        "betrieb-prozessengpaesse-finden",
+        "betrieb-prozesshandbuch-erstellen",
+        "betrieb-vorfallmassnahmen-erstellen"
+      ],
+      "criteria": [
+        "SKILL.md vorhanden",
+        "Frontmatter vollständig",
+        "Struktur konsistent",
+        "Keine leeren Sektionen"
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Review: Finanzen Skills (3)",
+      "agent": "qa",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [],
+      "files": [
+        "finanzen-abweichungen-erklaeren",
+        "finanzen-angebote-vertraege-vergleichen",
+        "finanzen-rechnungen-ausgaben-pruefen"
+      ],
+      "criteria": [
+        "SKILL.md vorhanden",
+        "Frontmatter vollständig",
+        "Struktur konsistent",
+        "Keine leeren Sektionen"
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Review: IT Skills (3)",
+      "agent": "qa",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [],
+      "files": [
+        "it-change-request-pruefen",
+        "it-integrationsmapping-erstellen",
+        "it-ticket-triage"
+      ],
+      "criteria": [
+        "SKILL.md vorhanden",
+        "Frontmatter vollständig",
+        "Struktur konsistent",
+        "Keine leeren Sektionen"
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Review: Marketing Skills (3)",
+      "agent": "qa",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [],
+      "files": [
+        "marketing-inhalte-wiederverwerten",
+        "marketing-kampagne-planen",
+        "marketing-zielgruppen-botschaften"
+      ],
+      "criteria": [
+        "SKILL.md vorhanden",
+        "Frontmatter vollständig",
+        "Struktur konsistent",
+        "Keine leeren Sektionen"
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Review: Personal Skills (3)",
+      "agent": "qa",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [],
+      "files": [
+        "personal-bewerber-scorecard",
+        "personal-onboarding-faq",
+        "personal-stellenprofil-kalibrieren"
+      ],
+      "criteria": [
+        "SKILL.md vorhanden",
+        "Frontmatter vollständig",
+        "Struktur konsistent",
+        "Keine leeren Sektionen"
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Review: Vertrieb Skills (3)",
+      "agent": "qa",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [],
+      "files": [
+        "vertrieb-angebot-aus-gespraech",
+        "vertrieb-crm-deals-pruefen",
+        "vertrieb-kundenprofil-recherchieren"
+      ],
+      "criteria": [
+        "SKILL.md vorhanden",
+        "Frontmatter vollständig",
+        "Struktur konsistent",
+        "Keine leeren Sektionen"
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Review: Infrastructure/Meta Skills (5)",
+      "agent": "qa",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [],
+      "files": [
+        "doc",
+        "install-mcp-server",
+        "mcp-config-sync",
+        "playwright",
+        "security-best-practices"
+      ],
+      "criteria": [
+        "SKILL.md vorhanden",
+        "Frontmatter vollständig",
+        "Struktur konsistent",
+        "Keine leeren Sektionen",
+        "Technische Accuracy"
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Review: Skill-Creator & Installer (2)",
+      "agent": "qa",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [],
+      "files": [
+        "skill-creator",
+        "skill-installer"
+      ],
+      "criteria": [
+        "SKILL.md vorhanden",
+        "Frontmatter vollständig",
+        "Scripts validiert",
+        "Dokumentation vollständig"
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Review: Core Workflows (5)",
+      "agent": "review",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [],
+      "files": [
+        "brainstorm.md",
+        "debug.md",
+        "plan.md",
+        "review.md",
+        "tutorial.md"
+      ],
+      "criteria": [
+        "Frontmatter vorhanden",
+        "Nummerierte Schritte",
+        "Guardrails/Output definiert",
+        "Keine leeren Sektionen"
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Review: Betrieb Workflows (4)",
+      "agent": "review",
+      "priority": "P1",
+      "status": "TODO",
+      "dependencies": [],
+      "files": [
+        "betrieb-prozessverbesserung.md",
+        "betrieb-vorfallnachbereitung.md",
+        "fallabschluss.md",
+        "wochenabschluss.md"
+      ],
+      "criteria": [
+        "Frontmatter vorhanden",
+        "Struktur konsistent",
+        "Skill-Routing korrekt",
+        "Keine leeren Sektionen"
+      ]
+    },
+    {
+      "id": 12,
+      "title": "Review: Finanzen Workflows (2)",
+      "agent": "review",
+      "priority": "P1",
+      "status": "TODO",
+      "dependencies": [],
+      "files": [
+        "finanzen-einkaufsentscheidung.md",
+        "finanzen-monatskommentar.md"
+      ],
+      "criteria": [
+        "Frontmatter vorhanden",
+        "Struktur konsistent",
+        "Keine leeren Sektionen"
+      ]
+    },
+    {
+      "id": 13,
+      "title": "Review: IT Workflows (2)",
+      "agent": "review",
+      "priority": "P1",
+      "status": "TODO",
+      "dependencies": [],
+      "files": [
+        "it-change-vorbereitung.md",
+        "it-ticket-nachbereitung.md"
+      ],
+      "criteria": [
+        "Frontmatter vorhanden",
+        "Struktur konsistent",
+        "Keine leeren Sektionen"
+      ]
+    },
+    {
+      "id": 14,
+      "title": "Review: Marketing Workflows (2)",
+      "agent": "review",
+      "priority": "P1",
+      "status": "TODO",
+      "dependencies": [],
+      "files": [
+        "marketing-kampagnenstart.md",
+        "empfehlungskampagne.md"
+      ],
+      "criteria": [
+        "Frontmatter vorhanden",
+        "Struktur konsistent",
+        "Keine leeren Sektionen"
+      ]
+    },
+    {
+      "id": 15,
+      "title": "Review: Personal Workflows (2)",
+      "agent": "review",
+      "priority": "P1",
+      "status": "TODO",
+      "dependencies": [],
+      "files": [
+        "personal-einstellungsvorbereitung.md",
+        "kandidaten-onboarding.md"
+      ],
+      "criteria": [
+        "Frontmatter vorhanden",
+        "Struktur konsistent",
+        "Keine leeren Sektionen"
+      ]
+    },
+    {
+      "id": 16,
+      "title": "Review: Pro-Select Workflows (9)",
+      "agent": "review",
+      "priority": "P1",
+      "status": "TODO",
+      "dependencies": [],
+      "files": [
+        "neuerfall.md",
+        "neuerkunde.md",
+        "matching-session.md",
+        "pipeline-review.md",
+        "quartalsreview.md",
+        "monatlicher-externer-statusbericht.md",
+        "relocation-planung.md",
+        "winback-kampagne.md",
+        "entwicklungsplan.md"
+      ],
+      "criteria": [
+        "Frontmatter vorhanden",
+        "Struktur konsistent",
+        "Skill-Routing korrekt",
+        "Keine leeren Sektionen"
+      ]
+    },
+    {
+      "id": 17,
+      "title": "Review: Werkzeuge Workflows (3)",
+      "agent": "review",
+      "priority": "P1",
+      "status": "TODO",
+      "dependencies": [],
+      "files": [
+        "werkzeuge-mcp-einrichtung.md",
+        "werkzeuge-skill-erstellung.md",
+        "eskalation.md"
+      ],
+      "criteria": [
+        "Frontmatter vorhanden",
+        "Struktur konsistent",
+        "Keine leeren Sektionen"
+      ]
+    },
+    {
+      "id": 18,
+      "title": "Konsolidierung und Report",
+      "agent": "qa",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
+      "criteria": [
+        "Alle Befunde aggregiert",
+        "Qualitäts-Score pro Kategorie",
+        "Priorisierte Empfehlungen",
+        "Report in docs/reviews/"
+      ]
+    }
+  ],
+  "doneWhen": [
+    "Alle 28 Skills und 32 Workflows geprüft",
+    "Keine Dateien ohne SKILL.md oder leere Sektionen",
+    "Konsistenz der Struktur bestätigt",
+    "Report mit Befunden und Empfehlungen erstellt"
+  ],
+  "decisions": [
+    {
+      "date": "2026-05-11",
+      "decision": "Scope auf Non-ProSelect beschränkt",
+      "rationale": "Pro-Select Skills sind domänenspezifisch und separat zu pflegen"
+    }
+  ]
+}

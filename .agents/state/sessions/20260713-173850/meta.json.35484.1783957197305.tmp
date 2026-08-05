@@ -1,0 +1,10 @@
+{
+  "sid": "20260713-173850",
+  "schemaVersion": 1,
+  "category": "ci-cache",
+  "status": "active",
+  "gatesPassedBy": [],
+  "pendingPeerReviews": [],
+  "createdAt": "2026-07-13T15:39:57.304Z",
+  "workflow": "ultrawork"
+}

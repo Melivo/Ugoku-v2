@@ -1,0 +1,150 @@
+{
+  "sessionId": "20260629-qnap-mcp-assistant-user-auth",
+  "title": "QNAP MCP Assistant per-user auth integration",
+  "status": "Active",
+  "created": "2026-06-29",
+  "complexity": "Complex",
+  "goal": "Enable internal users to access the Pro Select QNAP NAS through the official QNAP MCP Assistant with per-user authentication, NAS-wide user-permission semantics, and explicit preview/approval for transfers and destructive actions.",
+  "targetEndpoint": "https://nasproselect.myqnapcloud.com/",
+  "targetUsers": ["internal users"],
+  "constraints": [
+    "Use the official QNAP MCP Assistant as the primary/default path to reduce custom code.",
+    "Each user authenticates with their own QNAP credentials.",
+    "QNAP user permissions are the primary NAS authorization boundary.",
+    "Do not restrict NAS access to local cwd or a local case folder.",
+    "AnythingLLM users may ask across multiple NAS folders in chat.",
+    "OpenCode users may call NAS folders outside local workspace when needed.",
+    "No credentials, tokens, sessions, passwords, or API keys in repo, chat, client config, runtime artifacts, or logs.",
+    "Download/upload/delete must not execute silently; use preview plus explicit approval for transfers and destructive actions.",
+    "NAS admin/system functions remain out of default user workflow scope unless a separate admin-pilot plan approves them."
+  ],
+  "apiContract": ".agents/results/api-contracts/qnap-mcp-assistant-user-auth.md",
+  "tracker": "docs/plans/work/020-qnap-mcp-assistant-user-auth.md",
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Discover official QNAP MCP Assistant install, auth, and tool surface",
+      "agent": "backend",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [],
+      "acceptanceCriteria": [
+        "Document install command, runtime requirements, and client config shape.",
+        "Verify whether it supports nasproselect.myqnapcloud.com.",
+        "List exposed tools and classify read, write, destructive, and admin capabilities.",
+        "Confirm whether per-user auth/session storage is local and non-secret in client config."
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Define per-user QNAP auth and credential handling",
+      "agent": "backend",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [1],
+      "acceptanceCriteria": [
+        "Choose official assistant credential flow if it is per-user and local.",
+        "Fallback to OS Credential Store only if needed.",
+        "No token or password appears in generated client config or logs.",
+        "Auth expiry and reauth states are redacted and actionable."
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Configure OpenCode and AnythingLLM MCP entries",
+      "agent": "backend",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [1, 2],
+      "acceptanceCriteria": [
+        "OpenCode can launch the QNAP MCP Assistant or thin wrapper.",
+        "AnythingLLM can launch the QNAP MCP Assistant or thin wrapper.",
+        "Client entries contain commands/args only and no secrets.",
+        "The configuration does not artificially bind NAS access to local cwd or fallordner."
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Implement or configure preview/approval policy",
+      "agent": "backend",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [1, 3],
+      "acceptanceCriteria": [
+        "Download executes only after preview plus approval if the assistant requires an apply step.",
+        "Upload/overwrite executes only after preview plus approval.",
+        "Delete executes only after preview plus approval and only when the QNAP user has rights.",
+        "If the official assistant cannot enforce this, a thin Pros wrapper/filter is specified or implemented."
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Run live smoke tests against nasproselect.myqnapcloud.com",
+      "agent": "qa",
+      "priority": "P1",
+      "status": "TODO",
+      "dependencies": [2, 3, 4],
+      "acceptanceCriteria": [
+        "User auth succeeds for at least one internal non-admin user and one admin user if available.",
+        "List/search works across multiple NAS folders permitted by QNAP rights.",
+        "Download works through approved flow.",
+        "Upload/overwrite preview works and apply is gated.",
+        "Delete preview is gated and no silent delete path is exposed."
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Update runtime docs and setup workflow",
+      "agent": "docs",
+      "priority": "P1",
+      "status": "TODO",
+      "dependencies": [1, 2, 3, 4],
+      "acceptanceCriteria": [
+        "Runtime manifest reflects official QNAP MCP Assistant as the default when approved.",
+        "Setup docs explain per-user auth, nasproselect.myqnapcloud.com, and no-secret config.",
+        "Docs explain that NAS access is governed by QNAP user rights, not local cwd/fallordner.",
+        "Docs explain preview/approval for upload/overwrite/delete."
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Security and regression review",
+      "agent": "qa",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [5, 6],
+      "acceptanceCriteria": [
+        "No secrets in repo, generated configs, runtime artifacts, or logs.",
+        "No unapproved destructive tool path is exposed.",
+        "Admin/system NAS operations are blocked or documented as separate admin-pilot only.",
+        "OpenCode and AnythingLLM config tests pass."
+      ]
+    }
+  ],
+  "completionCriteria": [
+    "Official QNAP MCP Assistant is evaluated and either approved as default or rejected with documented fallback.",
+    "Per-user QNAP auth works against https://nasproselect.myqnapcloud.com/ without storing secrets in client config.",
+    "OpenCode and AnythingLLM can use the configured QNAP MCP path.",
+    "Read/list/search/download workflows work for QNAP-permitted folders across the NAS.",
+    "Upload/overwrite/delete cannot execute silently and require preview plus explicit approval.",
+    "Docs and runtime manifest reflect the selected default and safety model.",
+    "Security review finds no Critical, High, or Medium issues."
+  ],
+  "decisionLog": [
+    {
+      "date": "2026-06-29",
+      "decision": "Use official QNAP MCP Assistant as the primary/default integration path.",
+      "rationale": "The official assistant is maintained/tested by QNAP and reduces custom Pros File Station code and custom bug surface."
+    },
+    {
+      "date": "2026-06-29",
+      "decision": "Do not bind QNAP NAS access to local cwd or fallordner.",
+      "rationale": "The NAS is an external user-selected data space; AnythingLLM chat may span multiple NAS folders and OpenCode may need NAS paths outside local workspace."
+    },
+    {
+      "date": "2026-06-29",
+      "decision": "Use QNAP user permissions as the primary NAS boundary, with preview/approval for destructive actions.",
+      "rationale": "Users should be able to use the rights they already have on QNAP, but destructive actions must not run silently through an agent."
+    }
+  ]
+}

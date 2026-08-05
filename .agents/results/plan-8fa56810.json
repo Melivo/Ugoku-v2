@@ -1,0 +1,130 @@
+﻿{
+    "description":  "Aktualisiere den pro-select-tutorial Skill, um alle 22 Optionen, 36+ Skills und 33+ Workflows korrekt abzudecken",
+    "planId":  "006-tutorial-skill-synchronisierung",
+    "sessionId":  "8fa56810",
+    "doneWhen":  [
+                     "Skill enthält alle 22 Optionen mit korrekten Zuordnungen",
+                     "Skill listet alle 36+ Skills mit Beschreibungen und Beispielprompts",
+                     "Skill listet alle 33+ Workflows mit Beschreibungen",
+                     "Routing-Regeln decken alle 22 Optionen ab",
+                     "Top-Skills sind in Skill und Workflow identisch",
+                     "Terminologie ist konsistent (Pro Select Harness)",
+                     "Namensgebung ist geklärt und dokumentiert",
+                     "QA-Review bestätigt vollständige Synchronisation"
+                 ],
+    "complexity":  "Medium",
+    "created":  "2026-05-11T02:18:30Z",
+    "status":  "Active",
+    "title":  "Tutorial Skill Synchronisierung",
+    "priority":  "P0",
+    "tasks":  [
+                  {
+                      "id":  1,
+                      "agent":  "documentation",
+                      "dependencies":  [
+
+                                       ],
+                      "priority":  "P0",
+                      "title":  "Optionen auf 22 erweitern",
+                      "status":  "TODO"
+                  },
+                  {
+                      "id":  2,
+                      "agent":  "documentation",
+                      "dependencies":  [
+
+                                       ],
+                      "priority":  "P0",
+                      "title":  "Fehlende Pro-Select-Skills ergänzen (21 Stück)",
+                      "status":  "TODO"
+                  },
+                  {
+                      "id":  3,
+                      "agent":  "documentation",
+                      "dependencies":  [
+
+                                       ],
+                      "priority":  "P0",
+                      "title":  "Fehlende Bereichs-Skills ergänzen",
+                      "status":  "TODO"
+                  },
+                  {
+                      "id":  4,
+                      "agent":  "documentation",
+                      "dependencies":  [
+
+                                       ],
+                      "priority":  "P0",
+                      "title":  "Fehlende Workflows ergänzen (24 Stück)",
+                      "status":  "TODO"
+                  },
+                  {
+                      "id":  5,
+                      "agent":  "documentation",
+                      "dependencies":  [
+                                           1
+                                       ],
+                      "priority":  "P0",
+                      "title":  "Routing-Regeln erweitern (9 → 21+)",
+                      "status":  "TODO"
+                  },
+                  {
+                      "id":  6,
+                      "agent":  "documentation",
+                      "dependencies":  [
+                                           2,
+                                           3
+                                       ],
+                      "priority":  "P1",
+                      "title":  "Top-Skills synchronisieren",
+                      "status":  "TODO"
+                  },
+                  {
+                      "id":  7,
+                      "agent":  "documentation",
+                      "dependencies":  [
+
+                                       ],
+                      "priority":  "P1",
+                      "title":  "Terminologie angleichen",
+                      "status":  "TODO"
+                  },
+                  {
+                      "id":  8,
+                      "agent":  "documentation",
+                      "dependencies":  [
+
+                                       ],
+                      "priority":  "P1",
+                      "title":  "Namensgebung konsistent machen",
+                      "status":  "TODO"
+                  },
+                  {
+                      "id":  9,
+                      "agent":  "qa",
+                      "dependencies":  [
+                                           1,
+                                           2,
+                                           3,
+                                           4,
+                                           5,
+                                           6,
+                                           7,
+                                           8
+                                       ],
+                      "priority":  "P2",
+                      "title":  "Finaler Abgleich Skill ↔ Workflow",
+                      "status":  "TODO"
+                  },
+                  {
+                      "id":  10,
+                      "agent":  "qa",
+                      "dependencies":  [
+                                           9
+                                       ],
+                      "priority":  "P2",
+                      "title":  "QA-Review der Aktualisierungen",
+                      "status":  "TODO"
+                  }
+              ]
+}

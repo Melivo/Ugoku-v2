@@ -1,0 +1,102 @@
+{
+  "id": "plan-mcp-server-smoke-20260628",
+  "title": "Other MCP Server Smoke Test",
+  "status": "READY",
+  "created": "2026-06-28",
+  "owner": "OpenCode/QA",
+  "complexity": "Medium",
+  "goal": "Test the configured non-HubSpot MCP servers with safe read-only/status smoke checks and record which are ready, blocked, or require credentials/configuration.",
+  "scope": {
+    "included": [
+      "OpenCode MCP server connectivity inventory",
+      "Gitea MCP read-only API check",
+      "Serena MCP project/status smoke check",
+      "Microsoft Graph MCP credential/status smoke check",
+      "DOCX local MCP guarded read smoke check",
+      "Office/PPTX MCP guarded read smoke check",
+      "QNAP MCP status/list smoke check within policy boundaries"
+    ],
+    "excluded": [
+      "HubSpot MCP, already verified in the previous deterministic setup test",
+      "Any write, delete, upload, publish, or credential mutation",
+      "Printing secrets, tokens, OAuth codes, or private document contents beyond bounded test outputs"
+    ]
+  },
+  "constraints": [
+    "All tests must be read-only or preview-only.",
+    "Do not change MCP client configuration or credentials.",
+    "Use MCP tools for actual server smoke checks where available.",
+    "Record progress and results in Serena memory."
+  ],
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Inventory configured MCP servers",
+      "agent": "qa",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [],
+      "acceptanceCriteria": [
+        "opencode mcp list or equivalent status is captured",
+        "non-HubSpot configured servers are listed",
+        "test target list is confirmed"
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Run read-only smoke checks for API-backed MCP servers",
+      "agent": "qa",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [1],
+      "acceptanceCriteria": [
+        "Gitea MCP responds to a read-only call",
+        "Microsoft Graph MCP reports credential readiness or clear blocker",
+        "QNAP MCP reports policy/credential readiness or clear blocker"
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Run guarded local-file MCP smoke checks",
+      "agent": "qa",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [1],
+      "acceptanceCriteria": [
+        "DOCX MCP handles a bounded workspace-local test document",
+        "Office/PPTX MCP handles a bounded workspace-local test presentation or reports a clear blocker",
+        "No existing user documents are modified"
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Run Serena MCP smoke check",
+      "agent": "qa",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [1],
+      "acceptanceCriteria": [
+        "Serena MCP memory or symbol tool responds",
+        "No project configuration changes are made"
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Summarize MCP server readiness",
+      "agent": "qa",
+      "priority": "P1",
+      "status": "TODO",
+      "dependencies": [2, 3, 4],
+      "acceptanceCriteria": [
+        "Each tested server has PASS, WARN, or BLOCKED status",
+        "Remaining manual actions are listed",
+        "Final result is written to memory"
+      ]
+    }
+  ],
+  "doneWhen": [
+    "All configured non-HubSpot MCP servers have a recorded read-only smoke result.",
+    "No MCP configuration or credentials were changed.",
+    "A final readiness matrix is recorded."
+  ]
+}

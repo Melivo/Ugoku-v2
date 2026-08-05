@@ -1,0 +1,130 @@
+{
+  "sessionId": "20260704-docling-tool-skill",
+  "title": "Docling als globalen Tool-Skill verwalten",
+  "status": "completed",
+  "created": "2026-07-04",
+  "owner": "opencode",
+  "complexity": "medium",
+  "goal": "Docling wird nicht mehr standardmaessig mit pros init in Fallordner ausgeliefert, sondern ueber pros tools als globaler pros-managed Tool-Skill installiert und aktualisiert.",
+  "apiContracts": {
+    "required": false,
+    "reason": "Keine neue Frontend-, Backend- oder Service-Schnittstelle; die Anpassung betrifft Runtime-Packaging, Tool-Skill-Inventar, Tests und Dokumentation."
+  },
+  "context": {
+    "relatedDesigns": [
+      "docs/plans/designs/004-pros-global-tool-skills-mcp-runtime.md"
+    ],
+    "relatedPlans": [
+      "docs/plans/work/008-pros-global-tool-skills-mcp-runtime.md"
+    ],
+    "affectedAreas": [
+      "packages/pros-cli/src/runtime-builder.ts",
+      "packages/pros-cli/src/tool-skill-list.ts",
+      "packages/pros-cli/src/runtime-builder.test.ts",
+      "packages/pros-cli/src/tool-skills.test.ts",
+      "runtime/pros/pros-runtime-manifest.md",
+      "runtime/pros/.agents/skills/docling"
+    ]
+  },
+  "constraints": [
+    "Root .agents/ bleibt Entwicklungs-SSOT; nur .agents/results ist fuer Plan-Artefakte beschreibbar.",
+    "runtime/pros/.agents ist die kuratierte Endnutzer-Runtime-Kopie.",
+    "pros init darf nur lokale Business-/Runtime-Skills in Fallordner kopieren.",
+    "Globale Tool-Skills werden ueber pros tools und pros tools update verwaltet und duerfen fremde Nutzer-Skills nicht ueberschreiben.",
+    "Keine Secrets oder providerbezogenen Zugangsdaten duerfen in Runtime- oder Plan-Artefakte geschrieben werden."
+  ],
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Docling-Verteilungsziel korrigieren",
+      "agent": "backend",
+      "priority": "P0",
+      "dependencies": [],
+      "acceptanceCriteria": [
+        "docling ist nicht mehr in LOCAL_RUNTIME_SKILLS enthalten.",
+        "runtime/pros/.agents/skills/docling wird nicht mehr als lokaler Fallordner-Skill behandelt.",
+        "Keine Fallordner-spezifischen Pfadannahmen bleiben im Skill-Text."
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Tool-Skill-Inventar erweitern",
+      "agent": "backend",
+      "priority": "P0",
+      "dependencies": [1],
+      "acceptanceCriteria": [
+        "GLOBAL_TOOL_SKILLS enthaelt docling.",
+        "pros tools beruecksichtigt docling beim Installieren.",
+        "pros tools update verwaltet docling mit bestehendem State-, Hash- und Konfliktschutz."
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Runtime-Projection gegen lokale Docling-Auslieferung absichern",
+      "agent": "backend",
+      "priority": "P0",
+      "dependencies": [1, 2],
+      "acceptanceCriteria": [
+        "buildRuntimeProjection kopiert docling nicht nach .agents/skills im Runtime-Output.",
+        "Lokale Business-, Workflow-Wrapper- und Pros-MCP-Skills bleiben unveraendert enthalten."
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Tests fuer pros tools und Runtime-Trennung aktualisieren",
+      "agent": "qa",
+      "priority": "P0",
+      "dependencies": [2, 3],
+      "acceptanceCriteria": [
+        "runtime-builder.test.ts erwartet, dass docling nicht lokal ausgeliefert wird.",
+        "tool-skills.test.ts oder CLI-Tool-Test deckt ab, dass docling global installiert wird.",
+        "Konfliktschutz fuer fremdverwaltete Skill-Ordner bleibt getestet."
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Runtime-Manifest und Maintainer-Doku korrigieren",
+      "agent": "docs",
+      "priority": "P1",
+      "dependencies": [1, 2],
+      "acceptanceCriteria": [
+        "runtime/pros/pros-runtime-manifest.md beschreibt docling als globalen Tool-Skill via pros tools.",
+        "Das Manifest beschreibt docling nicht mehr als lokalen Runtime-Skill.",
+        "Credential- und Secret-Hinweise bleiben korrekt."
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Validierung ausfuehren und Ergebnisse dokumentieren",
+      "agent": "qa",
+      "priority": "P0",
+      "dependencies": [3, 4, 5],
+      "acceptanceCriteria": [
+        "npm --workspace @pro-select/pros-cli test ist gruen.",
+        "npm --workspace @pro-select/pros-cli run lint ist gruen.",
+        "npm --workspace @pro-select/pros-cli run typecheck ist gruen.",
+        "node scripts/validate-runtime-files.js ist gruen; verbleibende Warnungen sind dokumentiert."
+      ]
+    }
+  ],
+  "doneWhen": [
+    "pros init liefert docling nicht standardmaessig in .agents/skills/docling aus.",
+    "pros tools installiert docling als globalen pros-managed Tool-Skill.",
+    "pros tools update verwaltet docling ueber denselben Hash-/State-/Konfliktschutz wie andere globale Tool-Skills.",
+    "Tests sichern lokale Runtime-Trennung und globale Tool-Skill-Auslieferung ab.",
+    "pros-runtime-manifest.md beschreibt die neue Einordnung korrekt.",
+    "Die relevanten Verifikationscommands sind gruen."
+  ],
+  "decisionLog": [
+    {
+      "date": "2026-07-04",
+      "decision": "docling wird globaler Tool-Skill statt lokaler Runtime-Skill.",
+      "rationale": "Docling ist ein allgemeines Konvertierungswerkzeug und soll durch pros tools initiiert werden, nicht automatisch in jeden Fallordner gelangen."
+    },
+    {
+      "date": "2026-07-04",
+      "decision": "Keine API-Contracts fuer diese Anpassung.",
+      "rationale": "Es gibt keine neue serviceuebergreifende Schnittstelle."
+    }
+  ]
+}

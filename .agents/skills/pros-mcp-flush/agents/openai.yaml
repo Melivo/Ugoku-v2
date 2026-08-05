@@ -1,0 +1,4 @@
+interface:
+  display_name: "Pros MCP Clean Slate"
+  short_description: "Remove Pros MCP setup and credentials"
+  default_prompt: "Use $pros-mcp-flush to remove Pros MCP client entries and credentials for a clean end-user test state."

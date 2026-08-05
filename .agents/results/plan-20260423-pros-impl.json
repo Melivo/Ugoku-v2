@@ -1,0 +1,134 @@
+{
+  "sessionId": "20260423-pros-impl",
+  "workflow": "ultrawork",
+  "phase": "PLAN",
+  "summary": "Implement the first source-repo-backed Pro Select runtime with a separate Windows-facing `pros` CLI while preserving the existing Linux `oma` development workflow.",
+  "acceptanceCriteria": [
+    "This repo gains a real source-level CLI/package structure for `pros`.",
+    "`pros` is modeled as a separate runtime entrypoint from `oma`.",
+    "The implementation treats the current working directory as a business workspace rather than the source repo.",
+    "V1 behavior stays focused on Pro Select-specific document and casework support.",
+    "The initial code path avoids Unix-only assumptions in Windows-facing runtime code.",
+    "The existing repo-local `oma` development flow remains intact."
+  ],
+  "assumptions": [
+    "There is currently no package.json or existing CLI package in this repo, so scaffolding a new source package is in scope.",
+    "The first implementation should prioritize a vertical slice over a complete end-user product.",
+    "Windows runtime behavior applies to `pros`, not to the repo's authoring workflow.",
+    "The active business workspace may be a case folder, document folder, invoice folder, or similar Pro Select working directory.",
+    "The initial implementation can store runtime metadata separately from `.serena`.",
+    "We should avoid modifying unrelated OMA assets unless a shared fix is required for the planned scope."
+  ],
+  "alternatives": [
+    {
+      "name": "Embed `pros` into `oma`",
+      "decision": "rejected",
+      "reason": "Conflicts with the approved runtime separation and would blur your private authoring workflow with the end-user runtime."
+    },
+    {
+      "name": "Make end users operate directly inside this source repo",
+      "decision": "rejected",
+      "reason": "Conflicts with the approved business-folder operating model and would couple production use to authoring assets."
+    },
+    {
+      "name": "Create a separate `pros` source package in this repo",
+      "decision": "selected",
+      "reason": "Preserves repo SSOT while allowing a distinct Windows-facing runtime and future packaging/export."
+    }
+  ],
+  "apiContracts": [
+    {
+      "name": "CLI contract",
+      "shape": {
+        "command": "pros",
+        "cwdMeaning": "active business workspace",
+        "primaryModes": [
+          "inspect-workspace",
+          "summarize-workspace",
+          "understand-case"
+        ]
+      }
+    },
+    {
+      "name": "Workspace contract",
+      "shape": {
+        "workspacePath": "string",
+        "workspaceType": [
+          "case",
+          "documents",
+          "invoices",
+          "unknown"
+        ],
+        "artifacts": "ArtifactRef[]"
+      }
+    },
+    {
+      "name": "Output contract",
+      "shape": {
+        "caseSummary": "string",
+        "caseSnapshot": "CaseSnapshot",
+        "modelRecommendation": "ModelRecommendation",
+        "nextSteps": "NextStep[]"
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "priority": 1,
+      "title": "Create source package scaffolding for `pros`",
+      "details": [
+        "Add root package/workspace manifest for this repo.",
+        "Create a CLI package with a `pros` bin entry.",
+        "Keep the structure isolated from the existing OMA projection assets."
+      ]
+    },
+    {
+      "priority": 2,
+      "title": "Implement runtime separation primitives",
+      "details": [
+        "Add workspace resolution based on the current working directory.",
+        "Add Windows-safe runtime helpers for stdin/path/temp handling in the `pros` path.",
+        "Define separate runtime storage location or metadata strategy from `.serena`."
+      ]
+    },
+    {
+      "priority": 3,
+      "title": "Implement V1 Pro Select workspace understanding",
+      "details": [
+        "Scan the active workspace for supported artifacts.",
+        "Classify workspace type conservatively.",
+        "Build a minimal structured summary around Pro Select-specific work."
+      ]
+    },
+    {
+      "priority": 4,
+      "title": "Add model recommendation and output formatting",
+      "details": [
+        "Map task classes to the approved Mistral policy.",
+        "Return transparent recommendation rationale.",
+        "Print an initial human-review-oriented summary package."
+      ]
+    },
+    {
+      "priority": 5,
+      "title": "Verify and tighten the implementation",
+      "details": [
+        "Run available type/build/test checks.",
+        "Review scope against the approved design.",
+        "Capture any deferred items for later `pros` expansion."
+      ]
+    }
+  ],
+  "overEngineeringReview": {
+    "keep": [
+      "One CLI package rather than a multi-package platform.",
+      "A small vertical slice for workspace understanding.",
+      "Conservative workspace typing and summary output."
+    ],
+    "avoid": [
+      "Full candidate workflow automation in V1.",
+      "Separate persistence/database layer before the first useful slice exists.",
+      "General office assistant behavior beyond Pro Select-specific needs."
+    ]
+  }
+}

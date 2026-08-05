@@ -1,0 +1,256 @@
+{
+  "sessionId": "20260713-173850",
+  "title": "CI-Cache-Backend und mise-Tool-Cache — Iteration 2 Remediation (C2 + C4)",
+  "iteration": 2,
+  "status": "Active",
+  "created": "2026-07-13",
+  "complexity": "low",
+  "goal": "C2: Ersetze den bedingten mise-Cache-Ausdruck in ci.yaml durch zwei gegenseitig ausschliessende Setup-Schritte mit literalen cache-Werten (PR: cache: false, trusted: cache: true) unter Wahrung der PR-Isolation. C4: Normalisiere tests/release-workflow.test.ts von CRLF auf LF und stelle mise run release-check Exit-Code 0 sicher.",
+  "sourceDesign": "docs/plans/designs/009-ci-cache-backend-and-mise.md",
+  "sourcePlan": "docs/plans/work/030-ci-cache-backend-and-mise.md",
+  "previousPlanJson": ".agents/results/plan-20260713-173850.json (iteration 1, superseded by this revision)",
+  "judgeResult": "result-judge-20260713-173850-iter1.md",
+  "apiContracts": [],
+  "iteration1Results": {
+    "C1": "PASS — controlled cold save / warm restore, no artifactcache timeout",
+    "C3": "PASS — release.yaml cache: true, npm-trusted namespace, publishing unchanged",
+    "tasksCompleted": [1, 2, 3, 4, 5, 6],
+    "commitOnMain": "f560528a59dc0611790733995c4bc06b16196199"
+  },
+  "remediationScope": ["C2", "C4"],
+  "outOfScope": [
+    "C1 — already PASS; do not re-implement",
+    "C3 — already PASS; do not re-implement",
+    "release.yaml trigger, publishing, registry, secrets, upload steps",
+    "node_modules caching",
+    "npm ci / scripts/npm-ci-retry.sh changes",
+    "jdx/mise-action@v2 version change"
+  ],
+  "constraints": [
+    "C1 and C3 must not be reimplemented or regressed.",
+    "PR cache isolation on act_runner v0.2.11 must be preserved: PR mise cache stays off, trusted mise cache stays on.",
+    "The literal string 'cache: true' must appear in .gitea/workflows/ci.yaml (judge verification requirement).",
+    "The literal string 'cache: false' must appear in .gitea/workflows/ci.yaml (PR-isolation requirement).",
+    "tests/release-workflow.test.ts must use LF line endings exclusively.",
+    "mise run release-check must exit with code 0.",
+    "Both workflow files must remain syntactically valid YAML.",
+    "npm ci, actions/cache@v4 for ~/.npm, continue-on-error: true, and npm cache namespaces must remain unchanged.",
+    "No .gitattributes rule may alter line endings of non-TypeScript files unexpectedly."
+  ],
+  "assumptions": [
+    "The only file with CRLF in the Biome lint scope is tests/release-workflow.test.ts (verified: 132/132 CRLF lines, zero other test files affected).",
+    "Biome enforces LF as the canonical line ending for files in its includes list.",
+    "The existing test assertion at tests/release-workflow.test.ts:66 checking for the conditional cache expression will be replaced by assertions verifying literal cache: false and cache: true.",
+    "Adding a .gitattributes with '*.ts text eol=lf' provides deterministic future enforcement without affecting non-TypeScript files.",
+    "No remote CI run is required for C4 verification — mise run release-check is a local preflight check.",
+    "C2 verification is a static MCP check of ci.yaml; no remote CI run is needed for the literal-cache assertion."
+  ],
+  "alternatives": [
+    {
+      "id": "A",
+      "name": "Zwei gegenseitig ausschliessende mise-Schritte + minimale .gitattributes (EMPFOHLEN)",
+      "description": "R1 teilt den mise-Schritt in ci.yaml in zwei bedingte Schritte auf (if: pull_request -> cache: false; if: !pull_request -> cache: true). R2 normalisiert die Testdatei auf LF und fuegt *.ts eol=lf in .gitattributes hinzu. R3 verifiziert C2+C4 und re-confirmt C1+C3.",
+      "pros": [
+        "Erfuellt die judge-Verifikationsmethode wortwoertlich (literal cache: true und cache: false)",
+        "Erhaelt die PR-Isolation auf act_runner v0.2.11",
+        "Deterministische LF-Erzwingung verhindert Rueckfall",
+        "Minimaler Scope: 2 Dateien geaendert, 1 Datei neu",
+        "Keine Feature-Flags, keine Custom-Logik"
+      ],
+      "cons": [
+        "Zwei mise-Schritte statt einem (akzeptabel, da das derjudge explizit fordert)"
+      ],
+      "selected": true
+    },
+    {
+      "id": "B",
+      "name": "Einzelner mise-Schritt mit Workflow-Matrix",
+      "description": "Verwende eine GitHub-Actions-Matrix mit cache als Matrix-Wert, so dass ein einzelner Schritt mit ${{ matrix.cache }} laeuft.",
+      "pros": ["Ein Schritt pro Job-Lauf"],
+      "cons": [
+        "Matrix-Werte sind keine literalen cache: true/false Strings in der YAML — judge wuerde erneut ablehnen",
+        "Zusaetzliche Matrix-Konfiguration ist Overengineering fuer zwei boolesche Werte",
+        "Komplexer als zwei bedingte Schritte"
+      ],
+      "selected": false
+    },
+    {
+      "id": "C",
+      "name": "Nur LF-Normalisierung ohne .gitattributes",
+      "description": "Konvertiere die Datei manuell auf LF ohne .gitattributes, verlasse sich auf Editor-Disziplin.",
+      "pros": ["Keine neue Datei"],
+      "cons": [
+        "Keine deterministische Praevention — CRLF kann durch Windows-Editoren zurueckkehren",
+        "Biome-Check bleibt fragil gegenueber zukuenftigen CRLF-Rueckfaellen"
+      ],
+      "selected": false
+    }
+  ],
+  "antiOverengineeringDecision": {
+    "decision": "Alternative A — Zwei gegenseitig ausschliessende mise-Schritte + minimale .gitattributes.",
+    "rationale": "Der Judge fordert wortwoertlich das Literal 'cache: true' in ci.yaml. Der aktuelle bedingte Ausdruck erfuellt diese Anforderung nicht. Die natuerliche Loesung ist, den einzelnen Schritt in zwei bedingte Schritte aufzuteilen — ein Standard-GitHub-Actions-Muster mit if:-Bedingungen, das beide Cache-Werte als Literale enthaelt. Die CRLF-Normalisierung ist eine Dateikonvertierung plus eine ein-zeilige .gitattributes-Regel. Beide Aenderungen sind minimal und direkt auf die Judge-Kriterien ausgerichtet.",
+    "explicitlyRejected": [
+      "Matrix-basierte Cache-Werte (Alternative B) — Matrix-Variablen sind keine Literale in YAML",
+      "Verzicht auf .gitattributes (Alternative C) — keine deterministische Praevention",
+      "Workflow-Input oder Environment-Gate fuer cache — Overengineering fuer boolesche Werte",
+      "Aenderung an release.yaml — C3 ist bereits PASS",
+      "Hinzufuegen von node_modules zum Cache — verletzt die urspruenglichen Constraints",
+      "Repositoryweite .gitattributes mit '* text=auto' — koennte nicht-TypeScript-Dateien unerwartet beeinflussen"
+    ]
+  },
+  "tasks": [
+    {
+      "id": "R1",
+      "title": "ci.yaml: mise-Schritt in zwei gegenseitig ausschliessende bedingte Schritte aufteilen (C2)",
+      "agent": "backend",
+      "priority": "P0",
+      "dependencies": [],
+      "acceptanceCriteria": [
+        ".gitea/workflows/ci.yaml enthaelt einen mise-Schritt mit 'if: github.event_name == 'pull_request'' und literal 'cache: false'.",
+        ".gitea/workflows/ci.yaml enthaelt einen mise-Schritt mit 'if: github.event_name != 'pull_request'' und literal 'cache: true'.",
+        "Beide mise-Schritte verwenden jdx/mise-action@v2 mit install: true.",
+        "Der bedingte Ausdruck 'cache: ${{ github.event_name != 'pull_request' }}' ist entfernt.",
+        "Der actions/cache@v4-Schritt fuer ~/.npm mit package-lock-Schluessel, continue-on-error: true und npm-pr-/npm-trusted-Namespaces bleibt unveraendert.",
+        "scripts/npm-ci-retry.sh bleibt die Installationsquelle.",
+        "Kein node_modules-Cache-Pfad ist hinzugefuegt.",
+        "Die YAML-Datei ist syntaktisch gueltig.",
+        "tests/release-workflow.test.ts: die Assertion fuer den bedingten cache-Ausdruck (Zeile ~66) ist aktualisiert, um literal 'cache: false' und 'cache: true' in ci.yaml zu verifizieren.",
+        "Die npm-cache-Namespace-Assertionen (format('pr-{0}') und || 'trusted') bleiben unveraendert und gueltig."
+      ],
+      "scope": "Ersetze den einzelnen mise-Schritt in .gitea/workflows/ci.yaml (Zeilen 15-20) durch zwei bedingte Schritte. Aktualisiere die Test-Assertion in tests/release-workflow.test.ts im Test 'isolates pull request caches from trusted refs', um die neuen literalen cache-Werte zu verifizieren. Keine andere Datei wird geaendert.",
+      "securityNote": "PR-isolation bleibt erhalten: PR-Laeufe verwenden cache: false, sodass keine untrusted-Cache-Eintraege in vertrauenswuerdige Refs eingeschleust werden koennen."
+    },
+    {
+      "id": "R2",
+      "title": "tests/release-workflow.test.ts: CRLF auf LF normalisieren und mise run release-check verifizieren (C4)",
+      "agent": "backend",
+      "priority": "P0",
+      "dependencies": ["R1"],
+      "acceptanceCriteria": [
+        "tests/release-workflow.test.ts enthaelt ausschliesslich LF-Zeilenenden (0 CRLF-Vorkommen).",
+        "Eine .gitattributes-Datei existiert mit mindestens '*.ts text eol=lf' als deterministische Praevention.",
+        "mise run release-check beendet sich mit Exit-Code 0.",
+        "Beide Workflow-Dateien (.gitea/workflows/ci.yaml, .gitea/workflows/release.yaml) lassen sich als YAML parsen.",
+        "Biome lint (npm run lint) endet mit Exit-Code 0.",
+        "Die Test-Suite (npm test) bleibt erfolgreich."
+      ],
+      "scope": "Konvertiere tests/release-workflow.test.ts von CRLF auf LF (132 Zeilen). Erstelle .gitattributes mit '*.ts text eol=lf'. Fuehre mise run release-check aus und bestätige Exit-Code 0.",
+      "antiOverengineeringNote": "Kein repositoryweites '* text=auto eol=lf' — nur TypeScript-Dateien werden deterministisch erfasst, um nicht-TypeScript-Dateien nicht zu beeinflussen. Die .gitattributes-Regel ist eine Zeile."
+    },
+    {
+      "id": "R3",
+      "title": "C2+C4 verifizieren und C1+C3 re-confirm ohne Reimplementation (QA)",
+      "agent": "qa",
+      "priority": "P0",
+      "dependencies": ["R1", "R2"],
+      "acceptanceCriteria": [
+        "C2-Verifikation: MCP/Text-Pruefung von .gitea/workflows/ci.yaml bestaetigt literales 'cache: true', actions/cache@v4 fuer ~/.npm mit package-lock-Schluessel, vorhandenes npm-ci-Skript und keine node_modules-Cache-Pfade.",
+        "C2-Verifikation: ci.yaml enthaelt ebenfalls literales 'cache: false' fuer PR-Isolation.",
+        "C4-Verifikation: mise run release-check beendet sich mit Exit-Code 0.",
+        "C4-Verifikation: beide Workflow-Dateien lassen sich als YAML parsen.",
+        "C1 re-confirm: keine Aenderung an Automation-CI-Backend-Verhalten oder Cache-Service; C1 bleibt PASS ohne Reimplementation.",
+        "C3 re-confirm: release.yaml bleibt unveraendert in Trigger, Publishing, Secrets, Upload und Cache; C3 bleibt PASS ohne Reimplementation.",
+        "Keine Regression in der bestehenden Test-Suite (27 Dateien, alle Tests gruen).",
+        "Alle Invarianten bleiben gewahrt: npm ci, continue-on-error, keine node_modules, PR-isolation."
+      ],
+      "scope": "Statische Verifikation von C2 und C4 gegen die Judge-Verifikationsmethoden. Re-confirm dass C1 und C3 durch die minimalen Aenderungen nicht tangiert werden. Keine CI-Remote-Laeufe erforderlich fuer C2/C4 — beide sind lokal statisch verifizierbar.",
+      "securityNote": "Keine Secrets oder Release-Tags in der Verifikation verwendet."
+    }
+  ],
+  "doneWhen": [
+    ".gitea/workflows/ci.yaml enthaelt literales 'cache: true' und 'cache: false' in zwei gegenseitig ausschliessenden mise-Schritten.",
+    "PR-isolation bleibt erhalten: PR-Laeufe verwenden cache: false, vertrauenswuerdige Laufe verwenden cache: true.",
+    "tests/release-workflow.test.ts verwendet ausschliesslich LF.",
+    "mise run release-check beendet sich mit Exit-Code 0.",
+    "Beide Workflow-Dateien sind syntaktisch gueltiges YAML.",
+    "C1 und C3 bleiben PASS ohne Reimplementation.",
+    "Keine Regression in Tests, Typecheck oder Build."
+  ],
+  "decisions": [
+    {
+      "date": "2026-07-13",
+      "decision": "Iteration 2 PLAN auf C2+C4 begrenzt; C1/C3 als bereits PASS nicht reimplementiert.",
+      "rationale": "Judge-Iteration-1 hat C1 und C3 als PASS bewertet. Nur C2 und C4 sind FAIL mit fail_count 1."
+    },
+    {
+      "date": "2026-07-13",
+      "decision": "Zwei gegenseitig ausschliessende mise-Schritte statt bedingtem Ausdruck.",
+      "rationale": "Die Judge-Verifikationsmethode fordert das wortwoertliche Literal 'cache: true' in ci.yaml. Ein bedingter Gitea-Ausdruck erfuellt diese mechanische Pruefung nicht. Zwei if:-bedingte Schritte sind das einfachste Standardmuster, das beide Literale enthaelt."
+    },
+    {
+      "date": "2026-07-13",
+      "decision": ".gitattributes mit '*.ts text eol=lf' statt repositoryweitem '* text=auto'.",
+      "rationale": "Minimale deterministische Praevention: nur TypeScript-Dateien werden erfasst, Biome lintet nur TS-Dateien. Kein Risiko fuer nicht-TypeScript-Dateien."
+    },
+    {
+      "date": "2026-07-13",
+      "decision": "Test-Assertion aktualisieren statt neuen Test hinzufuegen.",
+      "rationale": "Die bestehende Assertion verifiziert die veraltete bedingte cache-Syntax. Die aktualisierte Assertion verifiziert die neuen literalen Werte im selben Test-Fall, ohne zusaetzliche Test-Komplexitaet."
+    },
+    {
+      "date": "2026-07-13",
+      "decision": "Kein API-Vertrag.",
+      "rationale": "Die Remediation fuehrt keine neue Anwendungs- oder Service-Schnittstelle ein."
+    }
+  ],
+  "reviewResults": {
+    "step2_completeness": {
+      "status": "PASS",
+      "checkedAgainst": "Judge-Iteration-1 FAIL criteria C2 and C4; C1/C3 already PASS",
+      "coverage": [
+        "C2 literal cache: true in ci.yaml -> R1 acceptance criterion 2",
+        "C2 literal cache: false in ci.yaml -> R1 acceptance criterion 1",
+        "C2 PR isolation preserved -> R1 acceptance criteria 1, 5",
+        "C2 npm cache unchanged -> R1 acceptance criterion 5",
+        "C2 no node_modules -> R1 acceptance criterion 7",
+        "C2 test assertion updated -> R1 acceptance criterion 9",
+        "C4 LF normalization -> R2 acceptance criterion 1",
+        "C4 release-check exit 0 -> R2 acceptance criterion 3",
+        "C4 YAML parse -> R2 acceptance criterion 4",
+        "C1 re-confirm no regression -> R3 acceptance criterion 5",
+        "C3 re-confirm no regression -> R3 acceptance criterion 6",
+        "No test regression -> R3 acceptance criterion 7"
+      ],
+      "gaps": [],
+      "notes": "Alle Judge-FAIL-Kriterien sind auf R1/R2/R3 abgebildet. Done-When-Liste deckt beide Kriterien vollstaendig ab."
+    },
+    "step3_meta": {
+      "status": "PASS",
+      "checks": [
+        "Abhaengigkeits-DAG ist konsistent: R1 -> R2 -> R3. Keine Zyklen.",
+        "R2 haengt von R1 ab, weil beide tests/release-workflow.test.ts modifizieren — R1 aendert die Assertion, R2 normalisiert die Zeilenenden.",
+        "R3 haengt von R1 und R2 ab, da es beide Kriterien verifiziert.",
+        "Agent-Zuweisung: backend (Workflow-YAML + Test + LF), qa (Verifikation). Passend zur Domain.",
+        "Priorisierung: P0 fuer alle drei Tasks — alle sind auf dem kritischen Pfad fuer C2+C4.",
+        "Annahmen sind dokumentiert und explizit (6 Annahmen).",
+        "Constraints sind vollstaendig (9 Constraints einschliesslich C1/C3-Nicht-Reimplementation).",
+        "Task-Groessen: R1 ist eine YAML-Umstrukturierung + Test-Assertion-Update; R2 ist eine Zeilenendenumwandlung + .gitattributes; R3 ist reine Verifikation. Alle angemessen klein."
+      ],
+      "gaps": []
+    },
+    "step4_simplicity": {
+      "status": "PASS",
+      "checks": [
+        "Keine zusaetzlichen Tasks fuer Dokumentation oder Plan-Tracking (operational overhead).",
+        "Kein Feature-Flag, Workflow-Input oder Environment-Gate fuer cache-Werte.",
+        "Kein Custom-Cache-Key-Helper oder zusaetzlicher actions/cache-Schritt.",
+        "Keine Matrix-Build-Strategie (Alternative B abgelehnt).",
+        ".gitattributes ist eine ein-zeilige Regel, keine komplexe Konfiguration.",
+        "R1 und R2 sind bewusst getrennt, weil C2 (mise-Schritt-Struktur) und C4 (LF-Normalisierung) unterschiedliche Kriterien adressieren und unabhaengig nachverfolgbar bleiben sollen.",
+        "Keine Ueber-Spezifikation der ci.yaml-Schritte — die acceptance criteria beschreiben das Ergebnis, nicht den Implementierungsweg."
+      ],
+      "explicitlyRejectedComplexity": [
+        "Matrix-basierte cache-Werte (Alternative B) — keine Literale in YAML",
+        "Verzicht auf .gitattributes (Alternative C) — keine deterministische Praevention",
+        "Repositoryweites '* text=auto eol=lf' — koennte nicht-TypeScript-Dateien beeinflussen",
+        "Zusaetzlicher Verifikations-Workflow oder CI-Remote-Lauf fuer C2/C4 — beide sind lokal statisch verifizierbar",
+        "Neuer separater Test fuer die mise-Schritt-Struktur — bestehender Test wird aktualisiert"
+      ]
+    }
+  },
+  "parallelism": {
+    "wave1": ["R1"],
+    "wave2": ["R2"],
+    "wave3": ["R3"]
+  }
+}

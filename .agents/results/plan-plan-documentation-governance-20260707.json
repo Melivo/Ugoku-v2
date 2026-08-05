@@ -1,0 +1,211 @@
+{
+  "schemaVersion": 1,
+  "sessionId": "plan-documentation-governance-20260707",
+  "workflow": "plan",
+  "title": "Documentation Governance Umsetzung",
+  "status": "Active",
+  "created": "2026-07-09",
+  "owner": "OpenCode",
+  "complexity": "Complex",
+  "sourceDesign": "docs/plans/designs/009-documentation-governance.md",
+  "tracker": "docs/plans/work/029-documentation-governance.md",
+  "goal": "Implement the approved documentation governance model by establishing a durable policy, separating end-user/admin/maintainer documentation, auditing existing mixed content, aligning the help PDF pipeline, and preparing a documentation quality gate.",
+  "constraints": [
+    "Do not contradict or override root AGENTS.md, .agents/**, skills, workflows, or other OMA development instructions.",
+    "Do not modify .agents/** unless a later implementation task explicitly requires changing the agent system itself.",
+    "Serena Memory remains working context, not durable repo documentation SSOT.",
+    "End-user docs under docs/pros-hilfe-src/** must stay task-oriented and free of internal OMA/repo-development details.",
+    "Runtime target-state SSOT remains runtime/pros/pros-runtime-manifest.md.",
+    "No frontend/backend or service API contract is introduced by this plan."
+  ],
+  "apiContract": {
+    "required": false,
+    "decision": "No API contract artifact is required because the scope affects documentation governance, generated help artifacts, and repository validation rather than service interfaces."
+  },
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Dokumentationsinventar und Audit-Matrix erstellen",
+      "agent": "docs",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [],
+      "acceptanceCriteria": [
+        "All relevant files and notable Memory groups from Design 009 are inventoried.",
+        "Each item has audience, lifetime, authority, current issue, target action, and migration status."
+      ]
+    },
+    {
+      "id": 2,
+      "title": "docs/DOCUMENTATION-GOVERNANCE.md als dauerhafte Richtlinie erstellen",
+      "agent": "docs",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [1],
+      "acceptanceCriteria": [
+        "The governance document contains documentation spaces, placement rules, OMA development precedence, Memory rules, end-user/admin-support separation, and a review checklist.",
+        "The document is concise enough for daily maintainer use and links back to Design 009 for full rationale."
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Leichte Querverweise in Architektur-, Plan- und Design-Index-Doku ergänzen",
+      "agent": "docs",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [2],
+      "acceptanceCriteria": [
+        "ARCHITECTURE.md, docs/PLANS.md, and docs/design-docs/index.md point to the governance document without duplicating it.",
+        "Existing repo/runtime boundary rules remain consistent."
+      ]
+    },
+    {
+      "id": 4,
+      "title": "docs/admin-support/** Zielstruktur einführen",
+      "agent": "docs",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [1, 2],
+      "acceptanceCriteria": [
+        "An admin/support documentation home exists with an index and scope statement.",
+        "The scope clearly separates admin/support setup and troubleshooting from end-user help."
+      ]
+    },
+    {
+      "id": 5,
+      "title": "README zu Einstieg und Index zurückschneiden",
+      "agent": "docs",
+      "priority": "P1",
+      "status": "TODO",
+      "dependencies": [2, 4],
+      "acceptanceCriteria": [
+        "README links to developer, end-user, and admin/support locations instead of duplicating full manuals.",
+        "README remains useful as the repository entry point."
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Endnutzerhandbuch bereinigen",
+      "agent": "docs",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [2, 4],
+      "acceptanceCriteria": [
+        "docs/pros-hilfe-src/endnutzerhandbuch.md contains only end-user tasks, safety rules, and simple escalation guidance.",
+        "Technical setup, MCP, credential, and deep troubleshooting details are moved or linked through admin/support documentation."
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Skill-Katalog neu entscheiden und bereinigen",
+      "agent": "docs/backend",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [1, 2, 6],
+      "acceptanceCriteria": [
+        "Internal oma-*, workflow, and maintainer skill names are no longer shipped as end-user help.",
+        "The help PDF pipeline remains consistent if skill-katalog is removed, renamed, or replaced with curated product capabilities."
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Technische MCP-/Credential-/CLI-Inhalte in Admin/Support-Doku konsolidieren",
+      "agent": "docs",
+      "priority": "P1",
+      "status": "TODO",
+      "dependencies": [4, 5, 6],
+      "acceptanceCriteria": [
+        "docs/CLI-MCP-COMMANDS.md, docs/MCP-CREDENTIALS.md, and end-user help have clear target audiences.",
+        "Credential and integration rules do not contradict runtime manifest or security guidance."
+      ]
+    },
+    {
+      "id": 9,
+      "title": "PDF-Hilfe-Pipeline an neue Endnutzer-Doku anpassen",
+      "agent": "backend",
+      "priority": "P1",
+      "status": "TODO",
+      "dependencies": [6, 7],
+      "acceptanceCriteria": [
+        "scripts/generate-pros-hilfe.py --list reflects only approved end-user help documents.",
+        "Generated runtime PDFs match the cleaned docs/pros-hilfe-src sources."
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Dokumentations-Governance-Checkliste als manuelles Gate dokumentieren",
+      "agent": "qa",
+      "priority": "P1",
+      "status": "TODO",
+      "dependencies": [2, 8],
+      "acceptanceCriteria": [
+        "Checklist covers audience, SSOT, end-user purity, secrets/PII, runtime boundary, and duplication checks.",
+        "Checklist is usable without blocking OMA workflow execution."
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Optionales automatisierbares Gate konzipieren oder minimal implementieren",
+      "agent": "backend/qa",
+      "priority": "P2",
+      "status": "TODO",
+      "dependencies": [10],
+      "acceptanceCriteria": [
+        "Either a clear follow-up plan/tech-debt entry exists, or a small validator is implemented without breaking OMA workflows.",
+        "Any automation starts advisory unless it detects hard risks such as secrets or internal details in end-user docs."
+      ]
+    },
+    {
+      "id": 12,
+      "title": "Release-/Runtime-Verifikation ausführen und dokumentieren",
+      "agent": "qa",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [6, 7, 8, 9],
+      "acceptanceCriteria": [
+        "PDF generation, runtime file validation, and relevant tests/checks are run or blockers are documented.",
+        "Verification confirms cleaned end-user docs are reflected in runtime help artifacts."
+      ]
+    },
+    {
+      "id": 13,
+      "title": "Abschlussreview gegen Design 009",
+      "agent": "qa/docs",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "acceptanceCriteria": [
+        "All Design 009 acceptance criteria are reviewed.",
+        "Any deviations are recorded in the decision log or tech debt tracker."
+      ]
+    }
+  ],
+  "doneWhen": [
+    "docs/DOCUMENTATION-GOVERNANCE.md is the clear SSOT for documentation placement.",
+    "End-user help contains no internal OMA or repo-development details.",
+    "Admin/support documentation has a dedicated home.",
+    "README is an entry point and index, not a mixed full manual.",
+    "Runtime help PDFs are generated from cleaned sources.",
+    "Technical docs have clear target audiences and no unresolved contradictions.",
+    "Serena Memory remains working context, not durable primary documentation.",
+    "OMA development instructions remain untouched and authoritative.",
+    "Verification results or blockers are documented."
+  ],
+  "decisionLog": [
+    {
+      "date": "2026-07-09",
+      "decision": "Classify implementation as Complex.",
+      "rationale": "The work spans multiple documentation spaces, runtime help generation, existing plan coordination, migration, and a future documentation check-gate."
+    },
+    {
+      "date": "2026-07-09",
+      "decision": "No API contract artifact is required.",
+      "rationale": "The plan does not introduce frontend/backend or service-to-service APIs."
+    },
+    {
+      "date": "2026-07-09",
+      "decision": "Proceed with root-cause governance and migration rather than a tactical README-only cleanup.",
+      "rationale": "Design 009 identified missing content governance as the underlying cause of documentation drift and audience mixing."
+    }
+  ]
+}

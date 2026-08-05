@@ -1,0 +1,10 @@
+{
+  "sid": "scm-20260706-ship-all-diffs",
+  "schemaVersion": 1,
+  "category": "main",
+  "status": "active",
+  "gatesPassedBy": [],
+  "pendingPeerReviews": [],
+  "createdAt": "2026-07-06T20:33:58.687Z",
+  "workflow": "scm"
+}

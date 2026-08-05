@@ -1,0 +1,274 @@
+{
+  "schemaVersion": 1,
+  "id": "ses_0999c7d5cffeqzaoGyZXeBVVCZ",
+  "title": "MCP-Workflow deterministisch verbessern",
+  "status": "active",
+  "created": "2026-07-15",
+  "language": "de",
+  "complexity": "complex",
+  "owner": "OpenCode",
+  "goal": "Den ausgelieferten MCP-Einrichtungsworkflow und die Pros-CLI so verbessern, dass auch weniger faehige Modelle reproduzierbare Befehle, stabile Ausgaben, eindeutige Fehlerpfade und eine abschliessende OpenCode-CLI-Verifikation verwenden.",
+  "scope": {
+    "in": [
+      "runtime/pros/.agents/workflows/werkzeuge-mcp-einrichtung.md",
+      "runtime/pros/.agents/workflows/werkzeuge-mcp-einrichtung/resources",
+      "runtime/pros/.agents/workflows/werkzeuge-mcp-einrichtung/scripts",
+      "packages/pros-cli/src",
+      "packages/pros-cli/src/*.test.ts",
+      "tests fuer Runtime-Projektion, Workflow und Endnutzer-E2E"
+    ],
+    "out": [
+      "Neue HTTP- oder Service-API",
+      "Administrative Erstellung von Entra-App-Registrierungen",
+      "Automatisches Erzeugen oder Rotieren echter Provider-Secrets",
+      "TLS-Bypass oder pauschaler Zertifikatsimport",
+      "AnythingLLM-Office-Unterstuetzung"
+    ]
+  },
+  "decisions": [
+    {
+      "decision": "Kein API-Vertrag wird erzeugt.",
+      "rationale": "Die relevante Grenze ist ein versionierter CLI-, JSON- und Exit-Code-Vertrag, keine neue Netzwerk-API."
+    },
+    {
+      "decision": "Determinismus bedeutet reproduzierbare Befehle, Statusschemata, Exit-Codes und Folgeaktionen.",
+      "rationale": "Externe Provider koennen nicht garantiert erfolgreich sein; ihre Fehler muessen jedoch stabil klassifiziert werden."
+    },
+    {
+      "decision": "Der Hauptworkflow bleibt ein kurzer Router mit flachen Ressourcen.",
+      "rationale": "Progressive Offenlegung und geringe Freiheitsgrade verbessern die Ausfuehrung durch weniger faehige Modelle."
+    },
+    {
+      "decision": "OpenCode-Verifikation braucht statische Verbindung und einen echten nicht-mutierenden Toolaufruf.",
+      "rationale": "Weder ein Config-Eintrag noch opencode mcp list allein beweisen fachliche Funktionsfaehigkeit."
+    }
+  ],
+  "cliContract": {
+    "requirements": [
+      "Alle agentengesteuerten Pros-Befehle bieten ein versioniertes --json-Schema.",
+      "Gleicher Zustand und gleiche Eingaben erzeugen denselben Status und Exit-Code.",
+      "Ausgaben enthalten keine Tokens, Secrets, Authorization URLs, OAuth States oder Provider-Daten ausser redigierter Evidenz.",
+      "Jeder Fehlerstatus besitzt genau eine dokumentierte sichere Folgeaktion.",
+      "Befehle sind idempotent oder weisen explizit eine Zustimmungspflicht aus."
+    ],
+    "canonicalCommands": [
+      "pros integrations graph app discover --redirect-uri http://localhost:53682/oauth/microsoft/callback --json",
+      "pros integrations graph app configure --client-id <id> --tenant-id <id> --json",
+      "pros integrations auth microsoft-graph start",
+      "Read-Host \"HubSpot client secret\" -MaskInput | pros mcp hubspot credentials set --client-id <id> --client-secret-stdin --json",
+      "pros mcp qnap diagnose --json",
+      "pros mcp configure opencode --include <targets> --global --json",
+      "opencode mcp list",
+      "opencode run --format json --dir <fallordner> --title pros-mcp-verify-<target> --agent build <fester-read-only-pruefauftrag>"
+    ],
+    "targetStates": [
+      "not_requested",
+      "blocked_precondition",
+      "credential_ready",
+      "configured",
+      "client_restart_required",
+      "connected",
+      "function_verified",
+      "failed",
+      "aborted"
+    ]
+  },
+  "resourceRouting": [
+    {
+      "path": "runtime/pros/.agents/workflows/werkzeuge-mcp-einrichtung.md",
+      "purpose": "Kurzer Router, Phasen, Gates, Ressourcenauswahl und Exit-Regeln"
+    },
+    {
+      "path": "runtime/pros/.agents/workflows/werkzeuge-mcp-einrichtung/resources/execution-protocol.md",
+      "purpose": "Deterministische Zustandsmaschine und unabhaengige Zielverarbeitung"
+    },
+    {
+      "path": "runtime/pros/.agents/workflows/werkzeuge-mcp-einrichtung/resources/agent-behavior.md",
+      "purpose": "DO-, DON'T-, STOP- und Evidenzregeln fuer weniger faehige Modelle"
+    },
+    {
+      "path": "runtime/pros/.agents/workflows/werkzeuge-mcp-einrichtung/resources/terminal-contract.md",
+      "purpose": "Exakte Befehle, JSON-Schema, Exit-Codes und erwartete Terminalausgaben"
+    },
+    {
+      "path": "runtime/pros/.agents/workflows/werkzeuge-mcp-einrichtung/resources/opencode-verification.md",
+      "purpose": "Statische und funktionale OpenCode-CLI-Verifikation pro MCP-Ziel"
+    },
+    {
+      "path": "runtime/pros/.agents/workflows/werkzeuge-mcp-einrichtung/resources/error-playbook.md",
+      "purpose": "Symptom, Fehlerklasse und genau eine sichere Folgeaktion"
+    },
+    {
+      "path": "runtime/pros/.agents/workflows/werkzeuge-mcp-einrichtung/scripts/verify-opencode-mcps.ps1",
+      "purpose": "Wiederholbare Ausfuehrung und mechanische Auswertung der OpenCode-CLI-Pruefungen"
+    }
+  ],
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Reproduzierbare Session-Fixtures und Statusvertrag definieren",
+      "agent": "debug",
+      "priority": "P0",
+      "dependencies": [],
+      "acceptanceCriteria": [
+        "Graph-Shell-Umgebung, App-Discovery, fremder Eintrag, QNAP-Fehldiagnose, Office-Abbruch und Falscherfolg sind als Fixtures erfasst.",
+        "Jedes Fixture besitzt erwarteten Zielstatus, Exit-Code und sichere Folgeaktion."
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Versioniertes JSON- und Exit-Code-Schema fuer MCP-Befehle implementieren",
+      "agent": "backend",
+      "priority": "P0",
+      "dependencies": [1],
+      "acceptanceCriteria": [
+        "Status wird pro Client und Ziel ausgegeben statt nur aggregiert.",
+        "Wiederholte Aufrufe sind schema- und exit-code-stabil.",
+        "Secret- und OAuth-State-Redaction ist getestet."
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Graph-App-Discovery und persistente App-Konfiguration implementieren",
+      "agent": "backend",
+      "priority": "P0",
+      "dependencies": [1, 2],
+      "acceptanceCriteria": [
+        "Discovery sucht zuerst nach Redirect URI und erfindet keinen Display Name.",
+        "Mehrere Kandidaten enden deterministisch in needs_selection.",
+        "OAuth und MCP Configure funktionieren ohne geerbte Agent-Shell-Variablen."
+      ]
+    },
+    {
+      "id": 4,
+      "title": "QNAP-Diagnose mit eindeutiger Fehlerklassifikation implementieren",
+      "agent": "backend",
+      "priority": "P0",
+      "dependencies": [1, 2],
+      "acceptanceCriteria": [
+        "token_missing, network_unreachable, tls_untrusted, credential_rejected, endpoint_error und ready sind getrennt.",
+        "Kein TLS-Bypass, Browser-Ausnahmepfad oder Root-Zertifikat-Import wird empfohlen.",
+        "Token und Authorization Header bleiben in allen Ausgaben redigiert."
+      ]
+    },
+    {
+      "id": 5,
+      "title": "HubSpot-Credential- und Configure-Ausgaben deterministisch machen",
+      "agent": "backend",
+      "priority": "P0",
+      "dependencies": [1, 2],
+      "acceptanceCriteria": [
+        "Genau eine maskierte stdin-Eingabe ist dokumentiert und getestet.",
+        "Es gibt keinen impliziten zweiten Prompt.",
+        "Status und Configure sind idempotent und JSON-stabil."
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Workflow als kurzen Router und Zustandsmaschine strukturieren",
+      "agent": "backend",
+      "priority": "P0",
+      "dependencies": [1],
+      "acceptanceCriteria": [
+        "Die Hauptdatei enthaelt nur Inputs, Phasen, Gates, Routing und Exit-Regeln.",
+        "Detailwissen lebt genau einmal in flachen Ressourcen.",
+        "Credential-freie Ziele laufen vor optional blockierenden Provider-Gates."
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Agentenverhalten, Fehler und Edge Cases als Ressourcen kodieren",
+      "agent": "backend",
+      "priority": "P0",
+      "dependencies": [3, 4, 5, 6],
+      "acceptanceCriteria": [
+        "DO, DON'T, WHEN X THEN Y und High-Risk-Blacklists sind explizit.",
+        "Stop oder Abbrechen terminiert sofort ohne Abschlussfrage.",
+        "Blockierte Ziele verhindern keine unabhaengigen Ziele.",
+        "Erfolg darf nur aus definierter Evidenz abgeleitet werden."
+      ]
+    },
+    {
+      "id": 8,
+      "title": "OpenCode-CLI-Verifikation und Parser-Skript implementieren",
+      "agent": "backend",
+      "priority": "P0",
+      "dependencies": [2, 6, 7],
+      "acceptanceCriteria": [
+        "opencode mcp list wird nach einem erforderlichen Neustart ausgefuehrt.",
+        "opencode run --format json fuehrt pro Ziel genau einen versionierten nicht-mutierenden Tooltest aus.",
+        "Tool-Contract-Drift endet als BLOCKED statt mit einem geratenen Ersatztool.",
+        "Das Skript prueft Servername, Toolaufruf, Resultat und Mutationsfreiheit."
+      ]
+    },
+    {
+      "id": 9,
+      "title": "CLI-Unit-, Integrations- und Sicherheitsregressionstests ergaenzen",
+      "agent": "qa",
+      "priority": "P0",
+      "dependencies": [2, 3, 4, 5],
+      "acceptanceCriteria": [
+        "JSON-Schema, Exit-Codes, Wiederholung, Redaction und Fehlerklassen sind automatisiert getestet.",
+        "Tests enthalten keine echten Provider-Secrets und keine Live-Mutationen."
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Workflow mit weniger faehigen Modellen vorwaerts testen",
+      "agent": "qa",
+      "priority": "P1",
+      "dependencies": [6, 7, 8],
+      "acceptanceCriteria": [
+        "Held-out Fixtures testen Zielauswahl, Zustimmung, Blocker, Retry, Abbruch und Ergebnisstatus.",
+        "Das Modell erfindet keine Befehle, Erfolge oder Zertifikatsursachen.",
+        "Fehlschlaege fuehren zur dokumentierten einzelnen Folgeaktion."
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Frischen Windows-Endnutzer-E2E-Lauf ausfuehren",
+      "agent": "qa",
+      "priority": "P1",
+      "dependencies": [8, 9, 10],
+      "acceptanceCriteria": [
+        "Ein frischer Fallordner und isolierte Konfiguration werden verwendet.",
+        "OpenCode-Neustart, Verbindungsstatus und nicht-mutierender Tooltest sind pro angefordertem Ziel belegt.",
+        "HubSpot- und QNAP-Livepruefungen erfolgen nur nach expliziter Zustimmung."
+      ]
+    },
+    {
+      "id": 12,
+      "title": "Runtime-Projektion, Ressourcen und Altplaene synchronisieren",
+      "agent": "qa",
+      "priority": "P1",
+      "dependencies": [3, 4, 5, 6, 7, 8, 9, 10, 11],
+      "acceptanceCriteria": [
+        "Keine Runtime-Ressource enthaelt widerspruechliche oder veraltete Befehle.",
+        "Ueberlappende aktive Altplaene sind abgeschlossen oder als ersetzt markiert.",
+        "Runtime-Build, Tests, Typecheck, Lint und Release-Dry-Run bestehen."
+      ]
+    }
+  ],
+  "dependencyGraph": [
+    "1 -> 2",
+    "1,2 -> 3,4,5",
+    "1 -> 6",
+    "3,4,5,6 -> 7",
+    "2,6,7 -> 8",
+    "2,3,4,5 -> 9",
+    "6,7,8 -> 10",
+    "8,9,10 -> 11",
+    "3,4,5,6,7,8,9,10,11 -> 12"
+  ],
+  "doneWhen": [
+    "Jeder Terminalbefehl besitzt Vorbedingungen, versionierte JSON-Ausgabe und Exit-Code-Semantik.",
+    "Graph funktioniert nach App-Konfiguration ohne pro Prozess neu gesetzte Umgebungsvariablen.",
+    "QNAP unterscheidet Token-, Netzwerk-, TLS-, Remote-Auth- und Endpointfehler.",
+    "Der Hauptworkflow ist ein kurzer Router mit flachen Ressourcen.",
+    "Weniger faehige Modelle folgen den festen DO-, DON'T-, STOP- und Fehlerregeln.",
+    "Blockierte Ziele stoppen keine unabhaengigen Ziele.",
+    "Kein Ziel wird ohne echte Evidenz als function_verified gemeldet.",
+    "Der Coding-Agent verifiziert jedes konfigurierte OpenCode-MCP mit opencode mcp list und opencode run --format json.",
+    "Alle CLI-, Workflow-, Sicherheits-, Runtime- und Release-Checks bestehen."
+  ]
+}

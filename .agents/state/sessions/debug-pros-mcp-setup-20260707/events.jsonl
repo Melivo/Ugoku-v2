@@ -1,0 +1,1 @@
+{"eventId":"00mrapudpaydh9ziow","ts":"2026-07-07T14:00:02.782Z","sid":"debug-pros-mcp-setup-20260707","kind":"decision.made","writerPid":6284,"payload":{"subject":"debug.root-cause","decision":"Treat the confirmed root cause as the basis for the minimal fix.","rationale":"The diagnosis traced the failure path and distinguished the root cause from symptoms."}}

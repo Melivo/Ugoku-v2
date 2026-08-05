@@ -1,0 +1,170 @@
+{
+  "planId": "005-skill-workflow-nachbereitung",
+  "sessionId": "2026-05-11-skill-review-remediation",
+  "title": "Nachbereitung: Qualitäts- und Vollständigkeitsreview aller Non-ProSelect Skills und Workflows",
+  "status": "Active",
+  "created": "2026-05-11",
+  "complexity": "Medium",
+  "parentPlan": "004-skill-workflow-qualitaetsreview",
+  "goal": "Die 7 identifizierten Issues aus dem Qualitätsreview beheben: trigger-Felder, korruptes Zeichen, Skill-Vertiefung, Exit Points, Guardrails/Output, Synthesis-Schritt, Pro-Select Kontexte",
+  "agents": ["qa", "review"],
+  "tasks": [
+    {
+      "id": 1,
+      "title": "trigger Feld zu allen 28 Skills hinzufügen",
+      "agent": "qa",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [],
+      "files": ["28 Non-ProSelect Skills"],
+      "criteria": [
+        "Jedes SKILL.md hat trigger Feld im Frontmatter",
+        "Trigger ist präzise und verwendbar",
+        "Konsistenz mit skill-creator Konventionen"
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Korruptes Zeichen in fallabschluss.md reparieren",
+      "agent": "qa",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [],
+      "files": ["runtime/pros/.agents/workflows/fallabschluss.md"],
+      "criteria": [
+        "Zeile 15 korrigiert: 完整 entfernt",
+        "Deutscher Text korrekt: 'Fallbezug und aktueller Status'"
+      ]
+    },
+    {
+      "id": 3,
+      "title": "12 deutsche Business-Skills vertiefen",
+      "agent": "qa",
+      "priority": "P1",
+      "status": "TODO",
+      "dependencies": [1],
+      "files": [
+        "allgemein-dokumentaenderungen-pruefen",
+        "allgemein-entscheidungsbriefing",
+        "allgemein-meeting-ergebnisregister",
+        "betrieb-prozessengpaesse-finden",
+        "betrieb-prozesshandbuch-erstellen",
+        "betrieb-vorfallmassnahmen-erstellen",
+        "finanzen-abweichungen-erklaeren",
+        "finanzen-angebote-vertraege-vergleichen",
+        "finanzen-rechnungen-ausgaben-pruefen",
+        "it-change-request-pruefen",
+        "it-integrationsmapping-erstellen",
+        "it-ticket-triage"
+      ],
+      "criteria": [
+        "1-2 konkrete Beispiele pro Skill",
+        "Edge-Case Handling ergänzt",
+        "Akzeptanzkriterien definiert"
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Exit Points zu 7 Workflows hinzufügen",
+      "agent": "review",
+      "priority": "P1",
+      "status": "TODO",
+      "dependencies": [],
+      "files": [
+        "marketing-kampagnenstart.md",
+        "personal-einstellungsvorbereitung.md",
+        "matching-session.md",
+        "quartalsreview.md",
+        "entwicklungsplan.md",
+        "werkzeuge-mcp-einrichtung.md",
+        "werkzeuge-skill-erstellung.md"
+      ],
+      "criteria": [
+        "Einheitliche Exit Points Sektion",
+        "Konsistent mit bestehenden Workflows"
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Guardrails + Output in 4 Core Workflows vervollständigen",
+      "agent": "review",
+      "priority": "P1",
+      "status": "TODO",
+      "dependencies": [],
+      "files": [
+        "brainstorm.md",
+        "debug.md",
+        "plan.md",
+        "review.md"
+      ],
+      "criteria": [
+        "brainstorm.md: Output Sektion",
+        "debug.md: Output Sektion",
+        "plan.md: Guardrails Sektion",
+        "review.md: Guardrails Sektion"
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Finalen Synthesis-Schritt in neuerkunde.md ergänzen",
+      "agent": "review",
+      "priority": "P2",
+      "status": "TODO",
+      "dependencies": [],
+      "files": ["neuerkunde.md"],
+      "criteria": [
+        "Expliziter finaler Output-Schritt",
+        "Konsistent mit anderen Workflows"
+      ]
+    },
+    {
+      "id": 7,
+      "title": "quartalsreview.md mit Pro-Select Kontexten spezifizieren",
+      "agent": "review",
+      "priority": "P2",
+      "status": "TODO",
+      "dependencies": [],
+      "files": ["quartalsreview.md"],
+      "criteria": [
+        "Pro-Select spezifische Metriken",
+        "Kandidaten-Funnel Kontext",
+        "Kundenzufriedenheit"
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Final Review und Konsistenzprüfung",
+      "agent": "qa",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [1, 2, 3, 4, 5, 6, 7],
+      "criteria": [
+        "Alle Änderungen validiert",
+        "Keine Breaking Changes",
+        "Konsistenz bestätigt"
+      ]
+    }
+  ],
+  "doneWhen": [
+    "Alle 28 Skills haben trigger Feld",
+    "fallabschluss.md korrigiert",
+    "12 deutsche Skills vertieft",
+    "7 Workflows haben Exit Points",
+    "4 Core Workflows vervollständigt",
+    "neuerkunde.md hat Synthesis-Schritt",
+    "quartalsreview.md ist spezifisch",
+    "Final Review bestätigt"
+  ],
+  "decisions": [
+    {
+      "date": "2026-05-11",
+      "decision": "Nachbereitungs-Plan erstellt",
+      "rationale": "7 Issues aus Review 004 konkretisiert"
+    },
+    {
+      "date": "2026-05-11",
+      "decision": "Tasks nach Priorität gruppiert",
+      "rationale": "Trigger zuerst (Basis für Task 3), dann Struktur, dann Inhalt"
+    }
+  ]
+}

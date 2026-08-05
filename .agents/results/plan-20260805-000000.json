@@ -1,0 +1,676 @@
+{
+  "plan_id": "001-bot-produktionsueberwachung",
+  "session_id": "20260805-000000",
+  "source": "docs/plans/work/001-bot-produktionsueberwachung.md",
+  "workflow": "ultrawork",
+  "phase": "IMPLEMENTED",
+  "step": 1,
+  "created": "2026-08-05",
+  "status": "ACTIVE",
+  "language": "de",
+  "summary": "Belastbare Produktionsueberwachung fuer den Ugoku Discord-Bot (py-cord). Der Bot liefert beobachtbaren Health-State und sd_notify-Liveness; scripts/healthcheck.py ist alleiniger Incident-Owner. Type=notify akzeptiert mit NotifyAccess=all READY/WATCHDOG vom uv-Python-Child; die In-Process-Initialisierung begrenzt Boot bis READY auf 30s und TimeoutStartSec=35s umfasst zusaetzlich den begrenzten Post-Start-Recovery-Check. Spotify startet mit genau einem fehlerschlagenden Versuch statt unbegrenzter Retries. Der externe Healthcheck fuehrt 2-Strike-Erkennung, deduplizierten non-blocking Restart und eine durable geordnete Alert-Outbox. Operational ist Recovery nach strikt gesundem frischem post-READY-State und durable eingereihtem RECOVERY abgeschlossen; Webhook-Zustellung bleibt unabhaengig pending und retryfaehig. Der konservative Timer-Pfad betraegt 295s und frische Legacy-Linux-Deployments installieren NumPy 2.1.3 ueber den verbindlichen Constraint.",
+  "goal": "Slash-Commands und Audio-Funktionen sind nachweisbar verfuegbar. Blockierte Ressourcen, Gateway-Ausfaelle und haengende Event Loops werden erkannt und innerhalb von <=300s operational wiederhergestellt: strikter frischer post-READY-State plus durable eingereihtes RECOVERY; externe Zustellung ist davon entkoppelt.",
+  "ccr_revision": {
+    "applied_findings": [
+      "F1 root-eigener eng begrenzter Restart-Mechanismus (sudoers.d, genau ein systemctl restart ugoku.service) statt allgemeiner systemctl-Rechte",
+      "F2 verbindlicher Runtime-State-Pfad /run/ugoku, Eigentuemler leadt3ch, Modi (0644/0640), atomare Dateien (tmp+os.replace)",
+      "F3 GATEWAY_DOWN deckt !connected / !ready-nach-Grace / closed / Latenz ab",
+      "F4 Incident-Lifecycle teilt eine incident_id ueber OUTAGE/RESTART/RECOVERY (alerter Lifecycle)",
+      "F5 /health nur Admin/Owner; Audio-Probe cooldown + single-flight",
+      "F6 vollstaendige 20s Shutdown-Gesamtdeadline incl. Force-Cleanup-Teilbudget",
+      "F7 automatisierte queue-isolierte Slash-/Audio-Readiness-Proben",
+      "F8 RESOURCE_BLOCKED-Zustand (Exit 6) mit Alarm/Recovery/Abnahme",
+      "F9 explizite haengende-Stream-/Kindprozess-Lifecycle-Integrationstests + verbindliche Coverage >=80",
+      "F10 korrigierte Task-Abhaengigkeiten + file-ownership",
+      "F11 5-Minuten-Frist mit Start/Ende, monotonic timestamps, begrenztem Alert-Timeout",
+      "F12 genau ein stdlib-Notifier zentral im HealthMonitor (keine fremde notify-Bibliothek), Watchdog nur fuer blockierte Loops, nur Produktions-Audiopfad, keine doppelte Intervallkonfiguration (HEALTH_MONITOR_INTERVAL)"
+    ],
+    "kept_minimal": true,
+    "app_code_untouched": true
+  },
+  "ccr_revision_2": {
+    "pass": 2,
+    "applied_findings": [
+      "G1 EINZIGER Incident-Owner: der externe healthcheck (scripts/healthcheck.py) verwaltet atomar-persistente /run/ugoku/incident.json + fail.count; der Bot liefert NUR beobachtbaren Health-State (health.json + sd_notify). bot/health/alerter.py entfaellt vollstaendig.",
+      "G2 Watchdog-Alarmierung ueber systemd OnFailure= (OUTAGE bei Watchdog-Kill/-Absturz) und ExecStartPost= (RECOVERY nach READY=1) als externe Hooks mit persistenter incident_id (ueberlebt via RuntimeDirectoryPreserve=restart). KEIN zweiter Loop-Restart-/Alarm-Pfad im Bot.",
+      "G3 RuntimeDirectoryPreserve=restart gesetzt; feste Dateien/Permissions bindend (health.json 0644, incident.json 0640, fail.count 0644; Eigentuemler leadt3ch; atomar). restart.marker entfaellt (Guard-Feld in incident.json).",
+      "G4 Der Oneshot-Check (scripts/healthcheck.py) darf NIEMALS NOTIFY_SOCKET voraussetzen (alle Modi funktionieren ohne/ohne systemd).",
+      "G5 slash_ready/audio_ready sind verbindliche Exit-Code-Bestandteile: Exit 7 (SLASH_NOT_READY) und Exit 8 (AUDIO_NOT_READY) neu; Exit 0 erfordert slash_ready==true UND audio_ready in {true,null}.",
+      "G6 SLA definiert: fault_started_at bis operationalem Recovery-Abschluss <=300s mit oberen Grenzen auf JEDE Operation (Detection<=225s, RestartTrigger<=5s, Stop<=25s, RestartSec<=5s, Boot->READY<=30s, Recovery-Verarbeitung<=5s).",
+      "G7 T10 Ownership korrigiert: QA (T8) schreibt NUR Tests; der Docs-Task (T9 bleibt Runbook; T10 wird docs) erstellt das Abnahme-Protokoll.",
+      "G8 T2/T5-Abhaengigkeiten korrigiert: T5 (audio_probe) vor T2 (monitor), da monitor.run_readiness_probe probe_audio nutzt; T2 deps [T1,T5]; alerter aus T2 entfernt.",
+      "G9 /health verlangt ECHTE Admin-/Owner-Checks: guild_permissions.administrator ODER ctx.guild.owner_id==ctx.user.id ODER ctx.user.id in ADMIN_OWNER_IDS. KEINE Guild-Mitgliedschaft (ADMIN_GUILD_IDS entfernt).",
+      "G10 EINZIGER READY-Notifier im HealthMonitor (HealthMonitor.start sendet sd_notify('READY=1') genau einmal); on_ready ruft nur HealthMonitor.start() auf, kein zweiter READY-Aufruf.",
+      "G11 RESOURCE_BLOCKED-Prädikate definiert fuer Voice (connect_task stuck), FFmpeg (orphan_sources>Schwelle), Librespot (listener stale/done); Probe-Quelle/-bytes/-timeout verbindlich (get_stream->FFmpegOpusAudio, HEALTH_AUDIO_PROBE_BYTES, HEALTH_AUDIO_PROBE_TIMEOUT).",
+      "G12 Voice-E2E-Abdeckung verbindlich: Test des Librespot->FFmpegOpusAudio->bytes-Decode-Pfads (produktionsnah, headless).",
+      "G13 Slash-Command-Sollmenge/Registration/Tests definiert: genau /health (Option audio:bool); Registration via setup() in commands/admin/health.py (bestehende commands/**/*.py-Konvention, KEIN __init__.py noetig); Tests in T8.",
+      "G14 Tests fuer close/cleanup/disconnect verbindlich in T8 (eigenes Test-Modul).",
+      "G15 commands/admin als gueltige Extension mit setup() festgelegt (modul-level def setup(bot): bot.add_cog(...)).",
+      "G16 Kein neuer Task ueber T1-T10; kein Anwendungscode im Plan."
+    ],
+    "kept_minimal": true,
+    "app_code_untouched": true
+  },
+  "ccr_revision_3": {
+    "pass": 3,
+    "status": "implemented",
+    "contract_precedence": "Diese Revision ersetzt alle widersprechenden Restart-, Alert-, Recovery-, Cleanup-, UMask- und Initialisierungsangaben frueherer Revisionen in diesem Plan.",
+    "applied_findings": [
+      "Restart erfolgt exakt ueber sudo -n /bin/systemctl --no-block restart ugoku.service; sudoers erlaubt exakt dieselben Argumente. restart_status=submitting|unknown|accepted blockiert Folge-Restarts, bis Ablehnung oder Recovery den Status klaert.",
+      "OUTAGE, RESTART und RECOVERY werden dedupliziert vor Versand atomar in /run/ugoku/alert-outbox.json persistiert, geordnet wiederholt und erst nach bestaetigtem Webhook als delivered markiert.",
+      "Der Watchdog-OnFailure-Pfad stellt OUTAGE und RESTART mit derselben incident_id in die Outbox.",
+      "ExecStartPost --recover laeuft nach Type=notify READY, verwendet ein striktes Grace-unabhaengiges Health-Prädikat und beendet den Incident nach durable eingereihtem RECOVERY; die Zustellung bleibt unabhaengig retryfaehig.",
+      "Fehlt fault_boot_id, ist ein strikt gesunder Snapshot nur recovery-faehig, wenn sein timestamp nach fault_started_at_wall liegt.",
+      "FFmpeg-Quellen und Sessions werden erst nach erfolgreichem Cleanup entfernt; Cleanup-Fehler lassen Kindprozess und Owner fuer Force-Cleanup auffindbar.",
+      "ugoku.service setzt UMask=0077.",
+      "on_ready initialisiert parallel mit asyncio.TaskGroup und rollt HTTP-, Deezer- und Spotify-Ressourcen bei Teilfehlern zurueck; Spotify blockiert den Start nicht mit unbegrenzten Retries."
+    ],
+    "sla": "Healthy path: fault_started_at_wall bis operationalem Abschluss nach strikt gesundem frischem post-READY-State und durable eingereihtem RECOVERY <=300s. Externe Zustellung bleibt unabhaengig pending und retryfaehig.",
+    "implementation_plan": ".agents/results/plan-20260805-ccr-step7-remediation.json"
+  },
+  "ccr_revision_4": {
+    "status": "implemented",
+    "contract_precedence": "Diese Revision ersetzt alle widersprechenden Recovery-, Notify-, Startup-Budget- und Linux-Dependency-Angaben frueherer Revisionen.",
+    "operational_recovery": "strict healthy fresh post-READY state + RECOVERY durable queued",
+    "delivery": "independent, ordered, retryable; pending delivery does not keep the incident active",
+    "notify_access": "Type=notify with uv as the main process and Python as its child uses NotifyAccess=all so READY=1 and WATCHDOG=1 from the Python child are accepted",
+    "boot_ready": "asyncio.timeout(HEALTH_SLA_BOOT_READY_S) enforces the complete 30s pre-READY initialization budget; Spotify initialization makes one attempt and propagates failure",
+    "unit_start_budget_s": 35,
+    "unit_activation": "TimeoutStartSec=35s covers the 30s pre-READY initialization budget plus the bounded 5s ExecStartPost recovery check",
+    "linux_dependency": "Production install uses -c deploy/constraints-linux-legacy-cpu.txt and verifies numpy==2.1.3 before unit activation"
+  },
+  "context_findings": {
+    "runtime": "Python 3.12/3.13, py-cord[voice]<3.0.0 (discord.Bot), asyncio single-loop",
+    "entrypoint": "main.py -> laedt Cogs aus commands/**/*.py via bot.load_extension (namespace packages, KEINE __init__.py pro Ordner; jedes Modul hat def setup(bot): bot.add_cog(...)); custom close_bot() mit _ugoku_closing-Guard; on_ready mit _ugoku_initialized-Guard",
+    "audio_stack": "ServerSession (bot/vocal/server_session.py) verwaltet queue + ffmpeg_sources deque + voice_client + cleanup_task/connect_task/dummy_load; Librespot/Spotify (bot/vocal/spotify.py: SpotifySessions.lp.get_stream(track_id), listener_task-Keepalive, close()); FFmpegOpusAudio pro Track",
+    "shutdown_today": "close_bot(): clean_session je ServerSession -> cancel cache_cleanup_task -> spotify_sessions.close() -> close_http_session() -> bot.close(). Kein Gesamt-Timeout; clean_session hat intern 10s stop_playback-Timeout",
+    "service_today": "deploy/ugoku.service: Type=simple, User=leadt3ch, Restart=on-failure, RestartSec=10, TimeoutStopSec=30. KEIN watchdog/notify, KEIN Health-Endpoint, KEINE Health-Timer, KEINE RuntimeDirectory, KEINE OnFailure/ExecStartPost-Hooks",
+    "tests_today": "tests/test_server_session.py (ein Cleanup-Test, unittest.IsolatedAsyncioTestCase)",
+    "config_store": "config.py (Konstanten, z.Z. nur SPOTIFY_ENABLED etc.) + bot/config/sqlite_config_manager.py (SQLite, Whitelists). .env via python-dotenv",
+    "gaps": "Keine Gateway-/Event-Loop-Ueberwachung, kein Admin-Health-Command, kein Alarm-Kanal (und kein externer Hook), Shutdown unbegrenzt (SIGKILL-Risiko -> verwaiste FFmpeg/Librespot-Prozesse), kein RESOURCE_BLOCKED-Konzept, keine SLA"
+  },
+  "assumptions": [
+    "Betrieb auf Host 'automation' als ugoku.service (systemd) wie im Plan und in deploy/ugoku.service dokumentiert.",
+    "Python 3.12/3.13 und die aktuelle py-cord-API bleiben stabil; bot.is_closed(), bot.is_ready(), bot.latency, bot.ws (Gateway) und ctx.user.guild_permissions / ctx.guild.owner_id sind verfuegbar.",
+    "sd_notify wird EINZIG zentral im HealthMonitor per stdlib (roher Socket-Schreib auf $NOTIFY_SOCKET) umgesetzt; OHNE fremde notify-Bibliothek. Ohne NOTIFY_SOCKET (Dev/Manuell) ist es ein no-op (kein Absturz). HealthMonitor.start() ist der EINZIGE READY-Notifier.",
+    "Alarmierung erfolgt AUSSCHLIESSLICH ueber externe systemd-Hooks (OnFailure= ugoku-alert-onfailure.service fuer OUTAGE; ExecStartPost= scripts/healthcheck.py --recover fuer RECOVERY) bzw. den externen healthcheck-Timer (OUTAGE/RESTART). Der Bot-Loop selbst sendet KEINE Discord-Webhooks und loest KEINE Restarts aus. Jeder Webhook-POST ist auf HEALTH_ALERT_TIMEOUT begrenzt.",
+    "Incident-Owner ist EINZIG scripts/healthcheck.py (alle Modi): schreibt/liest atomar /run/ugoku/incident.json und /run/ugoku/fail.count. Der Bot beruehrt diese Dateien NIEMALS (nur health.json).",
+    "Die Audio-Probe testet ausschliesslich den Produktions-Pfad (Librespot -> FFmpegOpusAudio-Decode, read von HEALTH_AUDIO_PROBE_BYTES) headless, ohne Voice-Channel-Connect und ohne Beruehrung von session_manager.server_sessions oder aktiven Nutzer-Queues. Ist Spotify nicht verfuegbar, meldet die Probe N/A (kein synthetischer Fallback).",
+    "KEINE neue Fremd-Abhaengigkeit; sd_notify ausschliesslich via Python-stdlib.",
+    "Restart wird nicht ueber allgemeine systemctl-Rechte ausgeloest, sondern ueber einen root-eigenen, eng begrenzten sudoers.d-Eintrag, der NUR '/bin/systemctl --no-block restart ugoku.service' (NOPASSWD) erlaubt.",
+    "SLA-Budget: Detection<=225s, RestartTrigger<=5s, Stop<=25s, RestartSec<=5s, Boot->READY<=30s, Recovery-Verarbeitung<=5s => 295s <=300s. Watchdog-Pfad (WatchdogSec=60) deutlich darunter.",
+    "Keine externe Monitoring-Plattform (Plan-Decision-Log: systemd-Hooks/Timer statt externer Plattform)."
+  ],
+  "architecture": {
+    "ownership_split": {
+      "bot_observable_only": "Der Bot (HealthMonitor) schreibt AUSSCHLIESSLICH die atomare State-Datei /run/ugoku/health.json (beobachtbarer Zustand) und ruft stdlib sd_notify (Liveness/Ready) auf. KEIN Schreiben von incident.json/fail.count, KEINE Discord-Webhooks aus dem Loop, KEINE Restart-Ausloesung.",
+      "external_incident_owner": "scripts/healthcheck.py (in allen Modi probe/--on-failure/--recover/--json) ist EINZIGER Owner von /run/ugoku/incident.json + /run/ugoku/fail.count (atomar). systemmd-Hooks (OnFailure/ExecStartPost) und der Health-Timer rufen healthcheck.py auf.",
+      "no_second_loop_path": "Es gibt genau EINEN Restart-Pfad: externer healthcheck (sudoers restart) bzw. systemd Watchdog+Restart=on-failure. Der Bot-Loop startet/ALARMIERT niemals selbst."
+    },
+    "problem_split": {
+      "blocked_event_loop": "Loop haengt -> kooperatives Task-Update/Notify unmoeglich. Braucht systemd-seitig erzwungenen Watchdog, der NICHT auf Loop-Antwort vertraut. Watchdog deckt AUSSCHLIESSLICH diese Fehlerklasse (blockierter Loop), NIEMALS Gateway-Verlust. Alarmierung (OUTAGE) bei Watchdog-Kill laeuft ueber systemd OnFailure=-Hook, nicht im Bot.",
+      "gateway_loss_or_partial": "Loop lebendig, aber Discord-Gateway tot/degradiert, Spotify-Session weg oder slash/audio nicht ready. Braucht In-Process-Monitor (nur State schreiben) plus externen Probe mit Exit-Codes (inkl. RESOURCE_BLOCKED/SLASH_NOT_READY/AUDIO_NOT_READY). Alarmierung/Restart nur extern.",
+      "resource_blocked": "Loop lebendig, aber eine Ressource ist blockiert (Voice connect_task stuck, ffmpeg-Orphans > Schwelle, Librespot-Listener stale/done). Braucht RESOURCE_BLOCKED-Zustand mit definierten Prädikaten -> Exit 6 -> externer Alarm/Restart."
+    },
+    "alternatives": [
+      {
+        "id": "A",
+        "name": "Hybrid: stdlib sd_notify-Liveness (zentral im HealthMonitor) + State-Datei (Bot nur beobachtend) + externes healthcheck.py (EIN Incident-Owner) + systemd-Timer + systemd OnFailure/ExecStartPost-Hooks + root-eigener Restart (EMPFOHLEN)",
+        "liveness": "systemd Type=notify + WatchdogSec=60. Der EINE stdlib-Notifier im HealthMonitor ruft sd_notify('READY=1') beim Start (einzig) und dann sd_notify('WATCHDOG=1') im Takt HEALTH_MONITOR_INTERVAL=20 (< WatchdogSec/2=30) auf. Blockiert der Loop > 60s, fehlt das Notify -> systemd killt + restartet (Restart=on-failure) + OnFailure=-Hook sendet OUTAGE. Watchdog greift NUR bei blockiertem Loop.",
+        "readiness": "In-Process HealthMonitor (bot/health/monitor.py) schreibt im selben Takt strukturierten Status (gateway, latency, loop-lag, readiness[sch+audio], sessions, spotify, ffmpeg-orphans, resource_blocked-Praedikate) atomar in State-Datei (/run/ugoku/health.json). KEIN Incident-/Alert-Schreiben durch den Bot.",
+        "probe": "scripts/healthcheck.py liest State-Datei und fuehrt den 2-Strike-Incident-Lifecycle. --recover akzeptiert nur einen strikt gesunden frischen post-READY-State, reiht RECOVERY durable ein und schliesst dann operational; die geordnete Zustellung laeuft unabhaengig.",
+        "external_alerting": "systemd ugoku.service: OnFailure ruft healthcheck.py --on-failure auf; ExecStartPost ruft nach READY healthcheck.py --recover auf. Alert-Ereignisse werden vor Versand durable eingereiht; RuntimeDirectoryPreserve=restart erhaelt die incident_id.",
+        "restart_within_sla": "Timer-Detection<=225s + RestartTrigger<=5s + Stop<=25s + RestartSec<=5s + Boot->READY<=30s + Recovery-Verarbeitung<=5s = 295s <=300s. Operationaler Abschluss setzt einen strikten frischen post-READY-State und durable eingereihtes RECOVERY voraus; Zustellung ist separat.",
+        "pros": ["Klare Ownership: Bot nur beobachtend, externer healthcheck einziger Incident-Owner", "Watchdog ausschliesslich fuer blockierte Loops; Alarmierung auch bei Watchdog-Kill (OnFailure)", "stdlib-Notifier einmalig zentral, keine Fremd-Abhaengigkeit", "Restart-/Alarm-Logik testbar ohne laufenden Bot (reine State-/Incident-Datei)", "Alarmierung vom (ggf. toten) Bot entkoppelt via Webhook mit begrenztem Timeout", "root-eigener, eng begrenzter Restart (keine allgemeinen systemctl-Rechte)", "kein zusaetzlicher TCP-Port", "kein zweiter Loop-Restart-/Alarm-Pfad"],
+        "cons": ["Runtime-Dir /run/ugoku (RuntimeDirectory=ugoku + RuntimeDirectoryPreserve=restart) erforderlich; Eigentuemler/Modi bindend", "sudoers.d-Snippet muss root-eigen (0440) installiert werden", "zwei zusaetzliche oneshot-Units (health + alert-onfailure) + ExecStartPost"]
+      },
+      {
+        "id": "B",
+        "name": "In-Process aiohttp /healthz-Endpoint + externer HTTP-Probe + systemd-Timer",
+        "description": "Bot oeffnet aiohttp-Server auf 127.0.0.1:PORT/healthz. systemd-Timer curlt den Endpoint (Timeout=5s). Blockierter Loop -> HTTP-Timeout -> Fail. Gateway-Down -> HTTP 503.",
+        "pros": ["Ein Mechanismus fuer beide Fehlerklassen", "State live via HTTP"],
+        "cons": ["zusaetzlicher lokaler Port + aiohttp-Server im Bot (mehr Angriffsflaeche)", "curl-Abhaengigkeit, komplexeres Timeout-Tuning", "Health-Endpoint-Server haengt ebenfalls im blockierten Loop", "schwerer unit-testbar", "Alarmierung wuerde ebenfalls im Bot-Loop landen (verletzt G2)"],
+        "rejected_reason": "Mehr Flaeche ohne Mehrwert gegenueber A; A nutzt systemd-nativen Watchdog fuer Hard-Haengs sauberer und haelt Alarmierung extern."
+      },
+      {
+        "id": "C",
+        "name": "Nur systemd Type=notify Watchdog",
+        "description": "Ausschliesslich sd_notify + WatchdogSec, kein Readiness-Monitor/Probe.",
+        "pros": ["Minimal"],
+        "cons": ["Erkennt KEINEN Gateway-Verlust bei lebendigem Loop (Notify wird weiter gesendet, Bot nicht restartet, Slash-Commands trotzdem tot)", "verletzt Done-When-Kriterium 'fehlende Gateway-Verbindung erkennen' und slash_ready/audio_ready-Bindung"],
+        "rejected_reason": "Funktionale Abdeckung unzureichend."
+      }
+    ],
+    "selected": "A",
+    "selection_rationale": "Alternative A ist die einzige, die BEIDE Fehlerklassen (blockierter Event Loop UEBER sd_notify-Watchdog, Gateway-Verlust/RESOURCE_BLOCKED/Readiness UEBER State-Datei + Probe) abdeckt, genau einen stdlib-Notifier zentral haelt (keine Fremd-Abhaengigkeit), den Watchdog auf blockierte Loops beschraenkt, die Ownership sauber trennt (Bot nur beobachtbar, externer healthcheck einziger Incident-Owner), Alarmierung ueber systemd OnFailure/ExecStartPost-Hooks vom Bot-Loop entkoppelt (Webhook, begrenztes Timeout) OHNE zweiten Loop-Pfad, keinen zusaetzlichen Port oeffnet, den Restart ueber einen root-eigenen eng begrenzten Mechanismus faehrt und die 300s-SLA nachweisbar erfuellt."
+  },
+  "contracts": {
+    "config_constants": {
+      "file": "config.py",
+      "additions": [
+        "HEALTH_MONITOR_ENABLED: bool = True         # In-Process Readiness-Monitor (nur beobachtbar) + zentraler stdlib sd_notify-Liveness",
+        "HEALTH_MONITOR_INTERVAL: int = 20           # EINZIGE Intervallkonfiguration; Takt fuer sd_notify UND State-Schreiben (muss < WatchdogSec/2 = 30 sein)",
+        "HEALTH_STATE_FILE: Path = Path(os.getenv('UGOKU_HEALTH_STATE_FILE', '/run/ugoku/health.json'))  # bindend in Prod; Dev-Override temp/health.json; BOT-Schreibt",
+        "HEALTH_RUN_DIR: Path = Path(os.getenv('UGOKU_RUN_DIR', '/run/ugoku'))  # Eigentuemler leadt3ch (via RuntimeDirectory); Modus 0750; RuntimeDirectoryPreserve=restart",
+        "HEALTH_STATE_MODE: int = 0o644               # health.json: lesbar fuer healthcheck-Timer/Hooks (gleicher User leadt3ch)",
+        "HEALTH_FAIL_COUNT_FILE: Path = HEALTH_RUN_DIR / 'fail.count'    # Modus 0644, atomar; NUR scripts/healthcheck.py schreibt",
+        "HEALTH_INCIDENT_FILE: Path = HEALTH_RUN_DIR / 'incident.json'   # Modus 0640, atomar; NUR scripts/healthcheck.py schreibt (EIN Incident-Owner)",
+        "HEALTH_GATEWAY_LATENCY_THRESHOLD_MS: int = 10000   # bot.latency-Schwelle (ms)",
+        "HEALTH_LOOP_LAG_THRESHOLD_MS: int = 3000     # max zulaessige Event-Loop-Verzoegerung (ms), gemessen via monotonic",
+        "HEALTH_STALE_THRESHOLD: int = 180            # State-Datei aelter als X Sekunden (mtime/wall) = STALE (Exit 2)",
+        "HEALTH_READY_GRACE: int = 60                  # Sekunden nach Boot/Reconnect, in denen !ready/!slash_ready/!audio_ready NICHT als Down zaehlen",
+        "HEALTH_FAILURE_THRESHOLD: int = 2             # konsekutive Probe-Fehlschlaege vor Restart",
+        "HEALTH_SHUTDOWN_BUDGET: int = 20              # VOLLSTAENDIGE Gesamt-Deadline fuer close_bot() incl. Force-Cleanup (< TimeoutStopSec=25)",
+        "HEALTH_FORCE_CLEANUP_BUDGET: int = 8          # Teilbudget fuer Force-Cleanup innerhalb der 20s",
+        "HEALTH_AUDIO_PROBE_COOLDOWN: int = 60         # Mindestsekunden zwischen Audio-Proben (single-flight-Schutz)",
+        "HEALTH_AUDIO_PROBE_TIMEOUT: float = 15.0      # Timeout einer Audio-Probe (Probe-Operation-Obergrenze)",
+        "HEALTH_AUDIO_PROBE_BYTES: int = 8192          # zu lesende Bytes aus FFmpegOpusAudio im Probe-Decode (Voice-E2E-Decode-Punkt)",
+        "HEALTH_AUDIO_PROBE_TRACK_ID: str|None = os.getenv('UGOKU_HEALTH_AUDIO_PROBE_TRACK_ID')  # optionaler fester Track fuer Probe; sonst erster verfuegbarer",
+        "HEALTH_ALERT_TIMEOUT: float = 5.0             # hartes Timeout fuer Discord-Webhook-POST (begrenzt; gilt fuer externe healthcheck.py-Hooks)",
+        "# --- RESOURCE_BLOCKED-Praedikate (Bot bewertet in snapshot; healthcheck liest) ---",
+        "HEALTH_FFMPEG_ORPHAN_THRESHOLD: int = 0       # orphan_sources > Schwelle pro/sum -> RESOURCE_BLOCKED",
+        "HEALTH_VOICE_CONNECT_STUCK_S: int = 30        # connect_task laeuft laenger als X s ohne connect -> RESOURCE_BLOCKED (voice)",
+        "HEALTH_LIBRESPOT_STALE_S: int = 60            # listener_last_beat aelter als X s ODER listener_task.done() -> RESOURCE_BLOCKED (librespot)",
+        "# --- SLA-Obergrenzen (je Operation) ---",
+        "HEALTH_SLA_TOTAL_S: int = 300                 # fault_started_at bis operationalem Recovery-Abschluss",
+        "HEALTH_SLA_DETECT_S: int = 225                # 2 Strikes @ 110s + AccuracySec=2s + Reserve",
+        "HEALTH_SLA_RESTART_TRIGGER_S: int = 5         # sudo systemctl restart-Ausfuehrung",
+        "HEALTH_SLA_STOP_S: int = 25                    # systemd Stop-Budget",
+        "HEALTH_SLA_RESTART_SEC_S: int = 5             # systemd RestartSec (konsistent zu deploy: 10->5)",
+        "HEALTH_SLA_BOOT_READY_S: int = 30             # Boot bis sd_notify READY=1",
+        "HEALTH_SLA_RECOVERY_ALERT_S: int = 5          # ExecStartPost Recovery-Verarbeitung",
+        "ADMIN_ALERT_WEBHOOK: Optional[str] = os.getenv('UGOKU_ALERT_WEBHOOK')   # Discord-Webhook in Admin-Kanal (nur externe Hooks)",
+        "ADMIN_OWNER_IDS: list[int] = [int(x) for x in os.getenv('UGOKU_ADMIN_OWNER_IDS','').split(',') if x]  # Bot-Owner-User-IDs"
+      ],
+      "removed": [
+        "HEALTH_RESTART_MARKER entfaellt -> Restart-Guard ist Feld 'restart_triggered' in incident.json (G3).",
+        "ADMIN_GUILD_IDS / UGOKU_ADMIN_GUILD_IDS entfallen -> /health nutzt ECHTE Berechtigungs-Checks (administrator-Perm/Guild-Owner), keine Guild-Mitgliedschaft (G9).",
+        "Zwei separate In-Process-Intervalle (Notify vs. State) -> zusammengelegt zum EINZIGEN Takt HEALTH_MONITOR_INTERVAL (F12).",
+        "Ehemalige systemd-notify-Fremd-Bibliothek -> stdlib-Notifier (F12).",
+        "bot/health/alerter.py samt Funktionsexport -> entfaellt; Incident-/Alert-Logik liegt EINZIG in scripts/healthcheck.py (G1)."
+      ],
+      "note": "os- und Path-Import in config.py ergaenzen, falls noch nicht vorhanden. BOT schreibt atomar NUR health.json (tmp + os.replace + fsync, Modus HEALTH_STATE_MODE). scripts/healthcheck.py schreibt atomar incident.json (0640) + fail.count (0644). Eigentuemler leadt3ch fuer alle /run/ugoku-Dateien."
+    },
+    "env_template": {
+      "file": ".env.template",
+      "additions": [
+        "# --- Produktionsueberwachung ---",
+        "# Discord-Webhook in den Admin-Kanal fuer Ausfall-/Restart-/Recovery-/Resource-Alarme (nur externe Hooks)",
+        "UGOKU_ALERT_WEBHOOK=",
+        "# Komma-getrennte Bot-Owner-User-IDs ( /health erlaubt fuer Owner sowie In-Guild administrator/owner)",
+        "UGOKU_ADMIN_OWNER_IDS=",
+        "# Optional: Health-State-Datei (Default Prod /run/ugoku/health.json, Dev temp/health.json)",
+        "UGOKU_HEALTH_STATE_FILE=",
+        "# Optional: Runtime-Verzeichnis (Default /run/ugoku; via systemd RuntimeDirectory gesetzt)",
+        "UGOKU_RUN_DIR=",
+        "# Optional: fester Spotify-Track-ID fuer Audio-Probe (Default: erster verfuegbarer)",
+        "UGOKU_HEALTH_AUDIO_PROBE_TRACK_ID="
+      ]
+    },
+    "health_state_schema": {
+      "file": "/run/ugoku/health.json (Prod, bindend) bzw. temp/health.json (Dev)",
+      "owner": "leadt3ch:leadt3ch",
+      "mode": "0644",
+      "writer": "BOT ONLY (HealthMonitor.write_state)",
+      "atomic": "tmp-Datei im selben Verzeichnis + os.replace (+ fsync)",
+      "version": 1,
+      "shape": {
+        "pid": "int",
+        "boot_id": "str|null  # uuid bei on_ready, zur Erkennung eines Neustarts",
+        "timestamp": "float  # wall-clock epoch (mtime-basierte Frische)",
+        "monotonic_now": "float  # time.monotonic() bei Schreiben (Dauer-Math)",
+        "uptime_s": "float",
+        "gateway": {"connected": "bool", "closed": "bool", "ready": "bool", "ready_age_s": "float", "latency_ms": "float|null"},
+        "event_loop": {"last_tick_monotonic": "float", "lag_ms": "float  # via monotonic-Delta"},
+        "readiness": {"slash_ready": "bool  # verbindliches Exit-Kriterium (Exit 7 wenn false nach Grace)", "audio_ready": "bool|null  # verbindliches Exit-Kriterium (Exit 8 wenn false nach Grace; null=N/A wenn Spotify deaktiviert)", "last_check_monotonic": "float|null"},
+        "sessions": {"count": "int", "playing": "int", "guild_ids": "list[int]"},
+        "spotify": {"enabled": "bool", "session_alive": "bool|null", "listener_alive": "bool|null", "listener_last_beat_monotonic": "float|null", "last_check_monotonic": "float|null"},
+        "ffmpeg": {"orphan_sources": "int  # vs HEALTH_FFMPEG_ORPHAN_THRESHOLD"},
+        "voice": {"stuck_connects": "int  # connect_task > HEALTH_VOICE_CONNECT_STUCK_S"},
+        "resource_blocked": {"blocked": "bool  #Praedikat aus voice/ffmpeg/librespot", "reason": "str|null  # voice|ffmpeg|librespot|<detail>", "since_monotonic": "float|null"},
+        "version": "int"
+      },
+      "note": "health.json enthaelt KEINE incident_id und KEINE Alert-Metadaten (reiner Beobachtungs-State). incident_id lebt EINZIG in incident.json (externer Owner)."
+    },
+    "incident_file_schema": {
+      "file": "/run/ugoku/incident.json (Prod, bindend)",
+      "owner": "leadt3ch:leadt3ch",
+      "mode": "0640",
+      "writer": "scripts/healthcheck.py ONLY (EIN Incident-Owner; Modes probe/--on-failure/--recover)",
+      "atomic": "tmp-Datei im selben Verzeichnis + os.replace (+ fsync)",
+      "persists": "via RuntimeDirectoryPreserve=restart (ueberlebt Restart -> RECOVERY kann incident_id nach Start aufloesen)",
+      "shape": {
+        "incident_id": "str  # uuid; konstant ueber OUTAGE/RESTART/RECOVERY",
+        "reason": "str  # gateway_down|resource_blocked|event_loop_lag|spotify_down|slash_not_ready|audio_not_ready|watchdog",
+        "exit_code": "int  # letzter Probe-Exit bei Oeffnung",
+        "fault_started_at_wall": "str  # ISO8601; SLA-Start",
+        "fault_started_at_monotonic": "float|null  # wenn im selben Boot; sonst wall-korrelation",
+        "restart_triggered": "bool  # GENAU-EIN-RESTART-Guard pro Incident (ersetzt restart.marker)",
+        "restart_triggered_at_wall": "str|null",
+        "ended_at_wall": "str|null  # bei resolve (RECOVERY)",
+        "ended_at_monotonic": "float|null",
+        "recovered": "bool"
+      }
+    },
+    "fail_count_schema": {
+      "file": "/run/ugoku/fail.count",
+      "owner": "leadt3ch:leadt3ch",
+      "mode": "0644",
+      "writer": "scripts/healthcheck.py ONLY",
+      "atomic": "tmp + os.replace",
+      "shape": "int  # konsekutive Fehlschlaege; bei Erfolg Reset auf 0"
+    },
+    "healthcheck_cli": {
+      "file": "scripts/healthcheck.py",
+      "owner": "EIN Incident-Owner (schreibt incident.json + fail.count; liest health.json)",
+      "never_requires_notify_socket": "WAHR in allen Modi. healthcheck.py ist ein Oneshot und liest/schreibt nur Dateien + ggf. Webhook + ggf. sudo restart. Es liest NIEMALS NOTIFY_SOCKET und stuerzt ohne systemd nicht ab (G4).",
+      "modes": [
+        "probe (Default): python scripts/healthcheck.py [--state PATH] [--threshold N] [--no-restart] [--json]. Liest health.json, bewertet, Exit 0/2/3/4/5/6/7/8, pflegt fail.count, oeffnet/schliesst incident.json, sendet OUTAGE/RESTART-Webhook, loest GENAU EINEN Restart via sudoers aus (außer --no-restart). Genutzt durch ugoku-health.timer.",
+        "--on-failure: python scripts/healthcheck.py --on-failure. Oeffnet/idem Incident (reason=watchdog/<letzter Exit>), sendet OUTAGE-Webhook. Idempotent. Genutzt durch ugoku-alert-onfailure.service (systemd OnFailure=-Hook).",
+        "--recover: python scripts/healthcheck.py --recover. Wenn ein aktiver Incident und ein strikt gesunder frischer post-READY-State existieren: RECOVERY durable einreihen, Incident operational schliessen und Outbox-Zustellung unabhaengig versuchen. Sonst no-op/NOT_RECOVERED. Genutzt durch ugoku.service ExecStartPost (nach READY=1).",
+        "--json: wie probe, schreibt vollstaendige Diagnostik nach stdout OHNE Nebeneffekte (kein fail.count/Restart/Webhook)."
+      ],
+      "evaluation_order": "STALE(2) > RESOURCE_BLOCKED(6) > GATEWAY_DOWN(3) > EVENT_LOOP_LAG(5) > SPOTIFY_DOWN(4) > SLASH_NOT_READY(7) > AUDIO_NOT_READY(8) > OK(0). Erster zutreffender Exit gewinnt.",
+      "exit_codes": {
+        "0": "OK - State frisch; gateway connected+ready (nach Grace); slash_ready==true UND audio_ready in {true,null}; latency<Schwelle; spotify lebendig; loop lag<Schwelle; nicht resource_blocked",
+        "2": "STALE - State-Datei fehlt oder aelter als HEALTH_STALE_THRESHOLD",
+        "3": "GATEWAY_DOWN - ODER: not connected ODER closed ODER latency>=Schwelle ODER (not ready UND ready_age_s > HEALTH_READY_GRACE)",
+        "4": "SPOTIFY_DOWN - spotify.session_alive==false (nur wenn SPOTIFY_ENABLED)",
+        "5": "EVENT_LOOP_LAG - loop.lag_ms>=Schwelle",
+        "6": "RESOURCE_BLOCKED - resource_blocked.blocked==true (voice connect stuck ODER ffmpeg orphan> Schwelle ODER librespot listener stale/done)",
+        "7": "SLASH_NOT_READY - readiness.slash_ready==false UND ready_age_s>HEALTH_READY_GRACE (verbindlich, G5)",
+        "8": "AUDIO_NOT_READY - readiness.audio_ready==false UND ready_age_s>HEALTH_READY_GRACE (wenn spotify aktiv) (verbindlich, G5)"
+      },
+      "behavior": [
+        "Liest State-Datei (Default HEALTH_STATE_FILE). Schreibt JSON-Diagnostik nach stdout (fuer journald).",
+        "Fuehrt 2-Strike-Zaehler (HEALTH_FAIL_COUNT_FILE, atomar): Fehlschlag -> +1; Erfolg -> Reset auf 0.",
+        "Bei Zaehler >= threshold (Default 2) im probe-Modus: oeffnet Incident (incident_id, atomar, idempotent), sendet OUTAGE-Webhook (begrenzt auf HEALTH_ALERT_TIMEOUT), setzt restart_triggered=true (Guard GENAU EIN Restart pro Incident), sendet RESTART-Webhook, loest Restart via 'sudo -n /bin/systemctl --no-block restart ugoku.service' aus (außer --no-restart).",
+        "Restart AUSSCHLIESSLICH via root-eigenen sudoers.d-Mechanismus; KEINE allgemeinen systemctl-/sudo-Rechte, KEIN Shell-Kontext.",
+        "--on-failure: idempotentes Oeffnen/Schreiben des Incidents + OUTAGE-Webhook (fuert Watchdog-Kill/-Absturz); kein Restart-Ausloesen (das macht systemd Restart=on-failure).",
+        "--recover: bei aktivem Incident plus strikt gesundem frischem post-READY-State -> RECOVERY durable einreihen, resolve_incident (ended_at, recovered=true), danach unabhaengiger geordneter Zustellversuch.",
+        "Ohne State-Datei -> Exit 2 (STALE), kein Absturz/Traceback; Skript OHNE laufenden Bot und OHNE NOTIFY_SOCKET ausfuehrbar."
+      ],
+      "acceptance": "Exit-Codes deterministisch via unittest abdeckbar (mock State-Dateien); Restart-Trigger idempotent (genau ein RESTART pro Incident) und ausschliesslich ueber die begrenzte sudoers-Kommandozeile; --on-failure/--recover idempotent; niemals Abhaengigkeit von NOTIFY_SOCKET."
+    },
+    "resource_blocked_predicates": {
+      "evaluated_by": "HealthMonitor.snapshot() (Bot, schreibt health.json); gelesen von healthcheck.py -> Exit 6",
+      "predicates": [
+        {"name": "voice_connect_stuck", "predicate": "exists session mit connect_task nicht done UND (monotonic_now - connect_started_monotonic) > HEALTH_VOICE_CONNECT_STUCK_S", "reason": "voice"},
+        {"name": "ffmpeg_orphans", "predicate": "sum(session.ffmpeg_sources ohne aktive queue/source) > HEALTH_FFMPEG_ORPHAN_THRESHOLD", "reason": "ffmpeg"},
+        {"name": "librespot_listener_stale", "predicate": "SPOTIFY_ENABLED UND (listener_task.done() ODER (monotonic_now - spotify.listener_last_beat_monotonic) > HEALTH_LIBRESPOT_STALE_S)", "reason": "librespot"}
+      ],
+      "result": "resource_blocked.blocked = ODER aller Praedikate; reason = erster zutreffender Grund; since_monotonic = erster Eintritt (monoton)."
+    },
+    "audio_probe_contract": {
+      "source": "bot.spotify.sessions.lp.get_stream(track_id) -> discord.FFmpegOpusAudio(stream, ...) [PRODUKTIONS-Decode-Pfad, headless]",
+      "bytes": "read HEALTH_AUDIO_PROBE_BYTES aus der FFmpegOpusAudio-Quelle (Voice-E2E-Decode-Punkt; ohne voice_client.play)",
+      "timeout": "HEALTH_AUDIO_PROBE_TIMEOUT (15s) gesamt incl. get_stream+read+cleanup",
+      "cleanup": "finally: source.cleanup() via asyncio.to_thread + stream.close() via asyncio.to_thread; KEIN Eintrag in ffmpeg_sources irgendeiner ServerSession; KEIN Voice-Channel-Connect; KEINE Mutation von session_manager.server_sessions.",
+      "na_path": "SPOTIFY nicht verfuegbar/aktiv -> AudioProbeResult(ok=None, service='n/a', error='spotify unavailable') (KEIN synthetischer Fallback, KEIN Fake-Erfolg)."
+    },
+    "health_module_api": {
+      "package": "bot/health/ (neu; nur beobachtbar; KEIN alerter)",
+      "modules": [
+        {
+          "name": "bot/health/__init__.py",
+          "exports": "HealthMonitor, probe_audio, AudioProbeResult"
+        },
+        {
+          "name": "bot/health/monitor.py",
+          "class": "HealthMonitor",
+          "api": [
+            "__init__(self, bot) -> None",
+            "async def start(self) -> None  # EINZIGER READY-Notifier: sendet stdlib sd_notify('READY=1') genau EINMAL, dann startet genau EINEN Monitor-Loop-Task (single interval)",
+            "async def stop(self) -> None   # sauberes Beenden des Tasks",
+            "async def snapshot(self) -> dict  # baut State-Dict (reine Lesen von bot/session_manager/spotify); bewertet resource_blocked-Praedikate",
+            "async def write_state(self) -> None  # atomar: tmp+os.replace in HEALTH_STATE_FILE, Modus HEALTH_STATE_MODE; NUR health.json, NIEMALS incident.json/fail.count",
+            "def _sd_notify(self, state: str) -> None  # EINZIGER stdlib-Notifier: roher Socket-Schreib auf $NOTIFY_SOCKET; no-op + Log wenn nicht gesetzt",
+            "async def run_readiness_probe(self) -> dict  # queue-isolierte Slash-+Audio-Readiness; ruft probe_audio (audio_probe.py); respektiert cooldown + single-flight (asyncio.Lock)"
+          ],
+          "liveness": "HealthMonitor.start sendet stdlib sd_notify('READY=1') EINMAL (EINZIGER READY-Notifier, G10), dann periodisch sd_notify('WATCHDOG=1') im selben HEALTH_MONITOR_INTERVAL-Takt wie write_state. KEINE Fremd-Abhaengigkeit. Watchdog NUR fuer blockierten Loop.",
+          "readiness": "der EINE Loop prueft je Takt bot.is_closed()/is_ready()/latency/ws + loop-lag (monotonic) + readiness(sch+audio) + session_manager + spotify + ffmpeg-orphans + voice-stuck + resource_blocked-Praedikate -> write_state() UND sd_notify('WATCHDOG=1').",
+          "single_flight": "Audio-Probe wird ueber asyncio.Lock + HEALTH_AUDIO_PROBE_COOLDOWN (last-probe-monotonic) geschuetzt; parallele /health-Audio-Aufrufe teilen sich eine laufende Probe.",
+          "forbidden": "HealthMonitor sendet KEINE Webhooks, oeffnet/schliesst KEINE incidents, loest KEINE Restarts aus, liest/schreibt KEINE incident.json/fail.count."
+        },
+        {
+          "name": "bot/health/audio_probe.py",
+          "function": "async def probe_audio(bot, *, timeout: float = HEALTH_AUDIO_PROBE_TIMEOUT, bytes_to_read: int = HEALTH_AUDIO_PROBE_BYTES, track_id: str|None = HEALTH_AUDIO_PROBE_TRACK_ID) -> AudioProbeResult",
+          "contract_ref": "contracts.audio_probe_contract",
+          "return": "AudioProbeResult(ok: bool|None, service: str, duration_s: float, bytes_read: int, error: str|None).",
+          "acceptance": "Probe laesst 0 offene FFmpeg-/Librespot-Prozesse zurueck; wiederholter Aufruf ohne Leak; N/A-Pfad bei deaktiviertem Spotify; liest >=1 Byte bei Erfolg (Voice-E2E-Decode bewiesen)."
+        }
+      ]
+    },
+    "discord_admin_command": {
+      "file": "commands/admin/health.py (neu Cog; gueltige Extension via setup(); KEIN __init__.py noetig wg. bestehender namespace-package-Konvention)",
+      "slash_command_set": {
+        "commands": [
+          {"name": "/health", "options": [{"name": "audio", "type": "bool", "default": false, "description": "Zusaetzliche Audio-Readiness-Probe ausfuehren (single-flight+cooldown)"}]}
+        ],
+        "note": "Genau ein Admin-Slash-Command (/health). Keine weiteren Admin-Commands in diesem Plan."
+      },
+      "registration": "Modul-Level `def setup(bot): bot.add_cog(HealthAdminCog(bot))` (kein async noetig, aber kompatibel). Wird via bestehendem main.py-Loader geladen: COMMANDS_FOLDER.rglob('*.py') -> commands.admin.health. commands/admin braucht KEIN __init__.py (namespace package wie commands/vocal, commands/chatbot etc.).",
+      "protection": "Ephemeral; NUR ausfuehrbar wenn (ctx.guild ist nicht None UND (ctx.user.guild_permissions.administrator == True ODER ctx.guild.owner_id == ctx.user.id)) ODER ctx.user.id in ADMIN_OWNER_IDS. ECHTE Admin-/Owner-Checks, KEINE Guild-Mitgliedschaft (G9). Sonst ephemeral 'unauthorized' + Log; KEIN Status-Leak.",
+      "behavior": [
+        "Gibt Embed zurueck: gateway(connected/ready/latency), readiness(slash/audio), sessions(count/playing), spotify(alive), ffmpeg(orphan_sources), voice(stuck_connects), loop-lag, resource_blocked, letzter audio-probe.",
+        "Option audio=true: delegiert an HealthMonitor.run_readiness_probe() (respektiert cooldown + single-flight)."
+      ],
+      "acceptance": "Antwortet < 3s (ohne audio-probe); mit audio-probe < HEALTH_AUDIO_PROBE_TIMEOUT; wiederholte Audio-Aufrufe werden durch single-flight+cooldown gebuendelt; Nicht-autorisierte (kein administrator/owner) erhalten ephemeral deny; ein normaler Guild-Member OHNE administrator-Perm wird abgewiesen."
+    },
+    "systemd_contract": {
+      "files": {
+        "deploy/ugoku.service": "Type=notify; NotifyAccess=all akzeptiert READY/WATCHDOG vom uv-Python-Child; TimeoutStartSec=35s umfasst Boot->READY<=30s plus Recovery-Verarbeitung<=5s; WatchdogSec=60 (NUR blockierter Loop); Restart=on-failure; RestartSec=5; TimeoutStopSec=25; RuntimeDirectory=ugoku; RuntimeDirectoryMode=0750; RuntimeDirectoryPreserve=restart; OnFailure=ugoku-alert-onfailure.service; ExecStartPost=-<venv> scripts/healthcheck.py --recover. Der dokumentierte Installationspfad bindet deploy/constraints-linux-legacy-cpu.txt ein und prueft NumPy 2.1.3 vor Aktivierung.",
+        "deploy/ugoku-health.service (neu)": "Type=oneshot; User=leadt3ch; WorkingDirectory=/home/leadt3ch/ugoku; ExecStart=/home/leadt3ch/.local/bin/uv run --python /home/leadt3ch/ugoku/venv/bin/python scripts/healthcheck.py; bleibt nicht aktiv. Darf NICHT NOTIFY_SOCKET voraussetzen (wird von systemd fuer oneshot nicht gesetzt).",
+        "deploy/ugoku-health.timer (neu)": "OnBootSec=110s; OnUnitActiveSec=110s; AccuracySec=2s; WantedBy=timers.target; ugoku-health.service als Unit.",
+        "deploy/ugoku-alert-onfailure.service (neu)": "Type=oneshot; User=leadt3ch; WorkingDirectory=/home/leadt3ch/ugoku; ExecStart=/home/leadt3ch/.local/bin/uv run --python /home/leadt3ch/ugoku/venv/bin/python scripts/healthcheck.py --on-failure; OnFailure des ugoku.service (OUTAGE-Webhook + persistentes Incident). Bleibt nicht aktiv.",
+        "deploy/ugoku-restart.sudoers (neu, root-eigen)": "Installiert nach /etc/sudoers.d/ugoku-restart; Eigentuemler root:root; Modus 0440; Inhalt genau: 'leadt3ch ALL=(root) NOPASSWD: /bin/systemctl --no-block restart ugoku.service'. Erlaubt KEINE anderen systemctl-Subkommandos und KEIN Shell."
+      },
+    "install_steps": "Vor Unit-Installation: uv pip install --python /home/leadt3ch/ugoku/venv/bin/python -r requirements.txt -c deploy/constraints-linux-legacy-cpu.txt und numpy.__version__ == '2.1.3' verifizieren. Danach systemctl daemon-reload; visudo -cf deploy/ugoku-restart.sudoers && install -o root -g root -m 0440 deploy/ugoku-restart.sudoers /etc/sudoers.d/ugoku-restart; systemctl enable --now ugoku.service ugoku-health.timer (ugoku-alert-onfailure.service wird durch OnFailure= implizit aktiviert).",
+      "watchdog_contract": "WatchdogSec=60 (tf-infra) <=> HEALTH_MONITOR_INTERVAL=20 (backend, einziger Takt) => Notify alle 20s < 30s Haelfte. Watchdog deckt AUSSCHLIESSLICH blockierten Loop; Gateway-/Ressource-/Readiness-Fehler laufen ueber State+Probe (Exit 3/4/6/7/8), NIEMALS ueber den Watchdog.",
+      "hook_contract": "OnFailure=ugoku-alert-onfailure.service oeffnet/ergaenzt den Incident durable. ExecStartPost=-scripts/healthcheck.py --recover akzeptiert nach READY nur einen strikt gesunden frischen State, reiht RECOVERY durable ein und schliesst operational; pending Zustellung bleibt retryfaehig. KEIN Alert-/Restart-Pfad im Bot-Loop.",
+      "shutdown_contract": "HEALTH_SHUTDOWN_BUDGET=20 (backend, vollstaendig) <=> TimeoutStopSec=25 (tf-infra, 5s SIGKILL-Spielraum).",
+      "sla_contract_ref": "see contracts.sla"
+    },
+    "sla": {
+      "definition": "fault_started_at bis operationalem Abschluss nach strikt gesundem frischem post-READY-State und durable eingereihtem RECOVERY <= HEALTH_SLA_TOTAL_S (300s). Webhook-Zustellung ist ein unabhaengiger geordneter Retry-Concern.",
+      "upper_bounds_per_operation": [
+        {"stage": "B1 Detection (2 Strikes @ OnUnitActiveSec=110s + AccuracySec=2s + Reserve)", "max_s": "HEALTH_SLA_DETECT_S = 225", "owner": "tf-infra (timer) + backend (threshold)"},
+        {"stage": "B2 Restart-Trigger (sudo systemctl --no-block restart ugoku.service)", "max_s": "HEALTH_SLA_RESTART_TRIGGER_S = 5", "owner": "backend (healthcheck) + tf-infra (sudoers)"},
+        {"stage": "B3 Stop", "max_s": "HEALTH_SLA_STOP_S = 25 (TimeoutStopSec=25)", "owner": "tf-infra + backend shutdown"},
+        {"stage": "B4 systemd RestartSec", "max_s": "HEALTH_SLA_RESTART_SEC_S = 5 (RestartSec=5)", "owner": "tf-infra"},
+        {"stage": "B5 Boot -> READY", "max_s": "HEALTH_SLA_BOOT_READY_S = 30 (In-Process-Timeout; TimeoutStartSec=35s umfasst zusaetzlich B6)", "owner": "backend + tf-infra"},
+        {"stage": "B6 Recovery-Verarbeitung", "max_s": "HEALTH_SLA_RECOVERY_ALERT_S = 5", "owner": "backend (healthcheck) + tf-infra (ExecStartPost)"}
+      ],
+      "watchdog_path": "Bei blockiertem Loop: WatchdogSec=60 plus Stop/Restart/Boot/Recovery bleibt deutlich unter 300s.",
+      "total": "Summe Worst-Case B1..B6 = 225+5+25+5+30+5 = 295s <=300s."
+    },
+    "shutdown_lifecycle_contract": {
+      "file": "main.py (close_bot + on_ready)",
+      "changes": [
+        "close_bot() wird so eingefasst, dass die VOLLSTAENDIGE Shutdown-Sequenz (clean_session je Session -> cache_cleanup_task cancel -> spotify_sessions.close() -> close_http_session() -> bot.close() PLUS Force-Cleanup) deterministisch <= HEALTH_SHUTDOWN_BUDGET (20s) terminiert.",
+        "Implementierung: deadline = time.monotonic() + HEALTH_SHUTDOWN_BUDGET; Graceful-Schritte laufen mit remaining = deadline - now - HEALTH_FORCE_CLEANUP_BUDGET (>=0); bei Timeout/TimeoutExpired oder erschoepftem remaining -> Force-Cleanup begrenzt auf HEALTH_FORCE_CLEANUP_BUDGET (verbleibende voice_clients disconnect, ffmpeg/librespot via asyncio.to_thread mit je Schritt-Timeout killen), dann original_close().",
+        "_ugoku_closing-Guard bleibt.",
+        "on_ready: begrenzt die vollstaendige Initialisierung bis HealthMonitor.start() mit HEALTH_SLA_BOOT_READY_S. HealthMonitor.start ist der EINZIGE READY-Notifier. Spotify versucht die Initialisierung einmal und propagiert Fehler; Incident/RECOVERY bleiben extern."
+      ],
+      "acceptance": "Shutdown unter Last terminiert deterministisch <= 20s auch bei haengender clean_session; keine verwaisten Kindprozesse (FFmpeg/librespot) nach TimeoutStopSec; Force-Cleanup bleibt innerhalb seines Teilbudgets; on_ready enthaelt keinen zweiten READY-Aufruf und keine Alert-/Incident-Logik."
+    },
+    "dependencies_to_add": {
+      "file": "requirements.txt",
+      "additions": [],
+      "note": "KEINE neue Abhaengigkeit. sd_notify wird zentral im HealthMonitor per Python-stdlib (Socket auf $NOTIFY_SOCKET) umgesetzt (F12); eine fremde notify-Bibliothek entfaellt; alerter.py entfaellt (G1)."
+    }
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "agent": "backend",
+      "title": "Gesundheitsmodell + Konfiguration + bindende State-/Incident-Schemas + SLA",
+      "plan_ref": "Plan Task 1",
+      "priority": 1,
+      "dependencies": [],
+      "scope": ["config.py", ".env.template"],
+      "description": "Alle HEALTH_*-Konstanten (EINZIGES HEALTH_MONITOR_INTERVAL, bindende /run/ugoku-Pfade + Eigentuemler/Modi, atomare Dateien, Grace, Resource-Thresholds inkl. Voice/FFmpeg/Librespot-Praedikat-Grenzen, Audio-Probe bytes/timeout/track_id, Shutdown-+Force-Budgets, Probe-Cooldown, Alert-Timeout, SLA-Obergrenzen je Operation), ADMIN_OWNER_IDS/Webhook in config.py; .env.template ergaenzen (UGOKU_ADMIN_GUILD_IDS NICHT aufnehmen -> entfernt); os-/Path-Import sichern; Health-State-JSON-Schema (version=1, slash_ready/audio_ready verbindlich, KEINE incident_id), Incident-JSON-Schema (incident_id, fault_started_at, restart_triggered-Guard), fail.count-Schema als Referenz festhalten.",
+      "acceptance_criteria": [
+        "config.py enthaelt alle unter contracts.config_constants.additions aufgefuehrten Konstanten mit plausiblem Default; es gibt keine doppelte Intervallkonfiguration (nur HEALTH_MONITOR_INTERVAL).",
+        "HEALTH_RESTART_MARKER und ADMIN_GUILD_IDS/UGOKU_ADMIN_GUILD_IDS sind NICHT vorhanden (entfernt); SLA-Konstanten (HEALTH_SLA_*) und RESOURCE_BLOCKED-Praedikat-Grenzen (HEALTH_FFMPEG_ORPHAN_THRESHOLD, HEALTH_VOICE_CONNECT_STUCK_S, HEALTH_LIBRESPOT_STALE_S) sowie HEALTH_AUDIO_PROBE_BYTES sind vorhanden.",
+        ".env.template enthaelt sauber kommentierte UGOKU_*-Eintraege (Webhook, Owner-IDs, State-Datei, Run-Dir, Audio-Probe-Track); KEINE UGOKU_ADMIN_GUILD_IDS.",
+        "os und Path sind importiert; Default HEALTH_STATE_FILE ist bindend /run/ugoku/health.json (Prod) und per ENV ueberschreibbar (Dev temp/health.json).",
+        "Es gibt keinen zweiten In-Process-Intervall-Takt und keine fremde notify-Bibliothek; bot/health/alerter.py wird NICHT angelegt (Referenz entfernt).",
+        "Module importieren ohne Fehler ('python -c \"import config\"' exit 0).",
+        "Kein Anwendungscode außer config.py/.env.template beruehrt."
+      ]
+    },
+    {
+      "id": "T5",
+      "agent": "backend",
+      "title": "Kontrollierte Audio-Probe (nur Produktions-Pfad, Voice-E2E-Decode) mit vollstaendigem Cleanup",
+      "plan_ref": "Plan Task 4",
+      "priority": 2,
+      "dependencies": ["T1"],
+      "scope": ["bot/health/audio_probe.py"],
+      "description": "probe_audio(bot, *, timeout=HEALTH_AUDIO_PROBE_TIMEOUT, bytes_to_read=HEALTH_AUDIO_PROBE_BYTES, track_id=HEALTH_AUDIO_PROBE_TRACK_ID) testet AUSSCHLIESSLICH den Produktions-Pfad Librespot->FFmpegOpusAudio headless (Quelle: get_stream->FFmpegOpusAudio; liest HEALTH_AUDIO_PROBE_BYTES; ohne Voice-Connect, ohne ServerSession/queue), garantiert Cleanup in finally (source.cleanup + stream.close via to_thread); KEIN synthetischer Fallback (N/A, wenn Spotify nicht verfuegbar). Voice-E2E-Decode wird bewiesen (bytes_read>=1).",
+      "acceptance_criteria": [
+        "Probe verbindet NICHT mit Voice-Channel und mutiert NIEMALS session_manager.server_sessions oder irgendeine Track-Queue.",
+        "Quelle ist Librespot get_stream->discord.FFmpegOpusAudio (Produktions-Decode-Pfad); bei Erfolg werden >=1 Byte (bzw. HEALTH_AUDIO_PROBE_BYTES) gelesen (Voice-E2E bewiesen).",
+        "Bei Erfolg/Timeout/Fehler werden FFmpegOpusAudio.cleanup() und stream.close() in finally aufgerufen (via asyncio.to_thread).",
+        "Drei aufeinanderfolgende probe_audio-Aufrufe hinterlassen 0 zusaetzliche Prozesse (kein Leak).",
+        "Gesamtdauer <= HEALTH_AUDIO_PROBE_TIMEOUT; Fehler werden als AudioProbeResult(ok=False, error=..., bytes_read=0) zurueckgegeben, nicht als Exception.",
+        "Ist SPOTIFY nicht verfuegbar/aktiv: Rueckgabe AudioProbeResult(ok=None, service='n/a', bytes_read=0) (kein synthetischer Fallback, kein Fake-Erfolg)."
+      ]
+    },
+    {
+      "id": "T3",
+      "agent": "backend",
+      "title": "Externes healthcheck.py (EIN Incident-Owner; Exit 0/2/3/4/5/6/7/8; Modi probe/--on-failure/--recover; 2-Strike; genau ein Restart)",
+      "plan_ref": "Plan Task 2/6 (CLI-Haelfte)",
+      "priority": 2,
+      "dependencies": ["T1"],
+      "scope": ["scripts/healthcheck.py"],
+      "description": "Standalone CLI ist EINZIGER Incident-Owner. --recover verlangt einen strikt gesunden frischen post-READY-State, persistiert RECOVERY durable und schliesst den Incident operational, bevor die unabhaengige geordnete Zustellung versucht wird. Probe/OnFailure, Exit-Codes und non-blocking genau-ein-Restart bleiben unveraendert.",
+      "acceptance_criteria": [
+        "Exit-Codes 0/2/3/4/5/6/7/8 verhalten sich exakt wie contracts.healthcheck_cli (testbar mit temp-State-Dateien); Evaluation-Order eingehalten.",
+        "GATEWAY_DOWN (3) feuert bei !connected ODER closed ODER latency>=Schwelle ODER (!ready UND ready_age_s>HEALTH_READY_GRACE).",
+        "RESOURCE_BLOCKED (6) feuert bei resource_blocked.blocked==true (voice/ffmpeg/librespot-Praedikate).",
+        "SLASH_NOT_READY (7) feuert bei slash_ready==false UND ready_age_s>HEALTH_READY_GRACE; AUDIO_NOT_READY (8) analog bei audio_ready==false (spotify aktiv). Exit 0 erfordert slash_ready==true UND audio_ready in {true,null}.",
+        "--json gibt vollstaendige Diagnostik ohne Nebeneffekte aus.",
+        "Fail-Zaehler (fail.count) wird bei Erfolg zurueckgesetzt; bei threshold wird der Restart genau einmal pro Incident ausgeloest (restart_triggered-Guard in incident.json, idempotent).",
+        "Restart erfolgt AUSSCHLIESSLICH via 'sudo -n /bin/systemctl --no-block restart ugoku.service' (kein Shell-Kontext, keine anderen systemctl-Subkommandos); --no-restart verhindert Restart, Exit-Code bleibt korrekt.",
+        "--on-failure ist idempotent; --recover reiht bei aktivem Incident und strikt gesundem frischem post-READY-State RECOVERY durable ein und resolved operational, ohne auf Zustellung zu warten.",
+        "OUTAGE/RESTART (probe) bzw. OUTAGE (--on-failure) bzw. RECOVERY (--recover) tragen dieselbe incident_id; alle Webhook-POSTs sind auf HEALTH_ALERT_TIMEOUT begrenzt.",
+        "Ohne State-Datei -> Exit 2 (STALE), kein Absturz/Traceback; Skript OHNE laufenden Bot und OHNE NOTIFY_SOCKET ausfuehrbar (G4).",
+        "incident.json/fail.count werden atomar (tmp+os.replace) mit Modi 0640/0644 geschrieben; restart.marker wird NICHT verwendet."
+      ]
+    },
+    {
+      "id": "T6",
+      "agent": "tf-infra",
+      "title": "systemd Type=notify-Watchdog (nur Loop) + Health-Timer + OnFailure/ExecStartPost-Hooks + RuntimeDirectoryPreserve + root-eigener Restart",
+      "plan_ref": "Plan Task 5",
+      "priority": 2,
+      "dependencies": ["T1"],
+      "scope": ["deploy/ugoku.service", "deploy/ugoku-health.service", "deploy/ugoku-health.timer", "deploy/ugoku-alert-onfailure.service", "deploy/ugoku-restart.sudoers"],
+      "description": "ugoku.service mit Type=notify + NotifyAccess=all fuer den uv-Python-Child + TimeoutStartSec=35s fuer 30s Boot->READY plus 5s ExecStartPost-Recovery + WatchdogSec=60 + TimeoutStopSec=25 + RestartSec=5 + RuntimeDirectoryPreserve=restart + OnFailure/ExecStartPost-Hooks; ugoku-health.timer laeuft alle 110s mit AccuracySec=2s. Der Unit-Deploy-Pfad installiert Abhaengigkeiten mit deploy/constraints-linux-legacy-cpu.txt und prueft NumPy 2.1.3 vor Aktivierung.",
+      "acceptance_criteria": [
+        "ugoku.service nutzt Type=notify, NotifyAccess=all, TimeoutStartSec=35s, WatchdogSec=60, Restart=on-failure, RestartSec=5, TimeoutStopSec=25, PYTHONUNBUFFERED=1, RuntimeDirectory=ugoku, RuntimeDirectoryMode=0750, RuntimeDirectoryPreserve=restart, OnFailure=ugoku-alert-onfailure.service, ExecStartPost=-<cmd> scripts/healthcheck.py --recover; ExecStart/User/WorkingDirectory unveraendert.",
+        "WatchdogSec=60 ist konsistent mit backend HEALTH_MONITOR_INTERVAL=20 (< 30); der Watchdog ist dokumentiert NUR fuer blockierte Loops zustaendig (nicht Gateway).",
+        "ugoku-health.timer startet ugoku-health.service alle 110s ab Boot+110s (AccuracySec=2s).",
+        "ugoku-alert-onfailure.service ist Type=oneshot, User=leadt3ch, ExecStart=scripts/healthcheck.py --on-failure und wird ueber OnFailure= von ugoku.service aktiviert.",
+        "ExecStartPost ruft scripts/healthcheck.py --recover auf (RECOVERY nach READY=1); Fehler via '-' praefix ignoriert (Service wird nicht failed).",
+        "deploy/ugoku-restart.sudoers erlaubt ausschliesslich 'leadt3ch ALL=(root) NOPASSWD: /bin/systemctl --no-block restart ugoku.service' (keine anderen Subkommandos, kein Shell); Installation als root:root 0440 nach /etc/sudoers.d/ugoku-restart dokumentiert.",
+        "systemd-analyze verify deploy/*.service deploy/*.timer meldet keine Fehler; visudo -cf deploy/ugoku-restart.sudoers meldet OK.",
+        "Install-/Aktivierungsanweisungen (daemon-reload, visudo+install sudoers, enable --now ugoku.service ugoku-health.timer) als Kommentar/Hinweis hinterlegt; OnFailure-Unit wird implizit aktiviert."
+      ]
+    },
+    {
+      "id": "T2",
+      "agent": "backend",
+      "title": "HealthMonitor (zentraler+EINZIGER stdlib-Notifier + atomare State-Datei, nur beobachtbar; KEIN alerter)",
+      "plan_ref": "Plan Task 1/2",
+      "priority": 3,
+      "dependencies": ["T1", "T5"],
+      "scope": ["bot/health/__init__.py", "bot/health/monitor.py"],
+      "description": "Neues Paket bot/health (nur beobachtbar); HealthMonitor mit genau EINEM Monitor-Loop-Task (HEALTH_MONITOR_INTERVAL), der HealthMonitor.start zunaechst stdlib sd_notify('READY=1') EINMAL sendet (EINZIGER READY-Notifier) und dann pro Takt stdlib sd_notify('WATCHDOG=1') UND atomar write_state() ausfuehrt; stdlib-Notifier (Socket auf $NOTIFY_SOCKET, no-op ohne diesen); readiness-Probe-Runner (queue-isolierte Slash-+Audio-Readiness mit cooldown + single-flight; nutzt probe_audio aus T5); bewertet resource_blocked-Praedikate (voice/ffmpeg/librespot) in snapshot. KEIN alerter.py, KEINE Webhooks, KEIN Incident-/Restart-Handling im Bot.",
+      "acceptance_criteria": [
+        "HealthMonitor.start() erzeugt genau EINEN Task und sendet stdlib sd_notify('READY=1') genau EINMAL (EINZIGER READY-Notifier); stop() cancelt ihn sauber (kein zweiter Intervall-Timer).",
+        "_sd_notify nutzt NUR stdlib (socket auf os.environ['NOTIFY_SOCKET']); ohne NOTIFY_SOCKET Log + no-op (keine Exception); kein Import einer fremden notify-Bibliothek.",
+        "write_state() schreibt das vollstaendige Schema (contracts.health_state_schema, KEINE incident_id) atomar via temp-Datei + os.replace mit Modus HEALTH_STATE_MODE; Eigentuemler leadt3ch; NIEMALS incident.json/fail.count.",
+        "snapshot() bewertet resource_blocked-Praedikate (voice_connect_stuck/ffmpeg_orphans/librespot_listener_stale) und befuellt resource_blocked.{blocked,reason,since_monotonic}; readiness.slash_ready/audio_ready sind befuellt.",
+        "run_readiness_probe() ruft probe_audio (T5) auf und ist queue-isoliert (keine Mutation von session_manager.server_sessions); single-flight+cooldown aktiv.",
+        "HealthMonitor enthaelt KEINE Webhook-/Incident-/Restart-Logik (forbidden-Liste eingehalten).",
+        "'python -c \"import bot.health\"' exit 0; kein vorhandener Test bricht.",
+        "Nur Dateien unter bot/health/ werden geaendert (main.py-Einbindung erfolgt in T7)."
+      ]
+    },
+    {
+      "id": "T4",
+      "agent": "backend",
+      "title": "Geschuetzter /health-Admin-Command (ECHTE Admin-/Owner-Checks; Audio-Probe cooldown + single-flight; gueltige Extension via setup)",
+      "plan_ref": "Plan Task 3",
+      "priority": 4,
+      "dependencies": ["T2", "T5"],
+      "scope": ["commands/admin/health.py"],
+      "description": "Neuer Cog commands/admin/health.py mit /health (ephemeral; Option audio:bool default false), ECHTE Schutz-Checks (guild_permissions.administrator ODER ctx.guild.owner_id==ctx.user.id ODER ctx.user.id in ADMIN_OWNER_IDS; KEINE Guild-Mitgliedschaft), Status-Embed aus HealthMonitor.snapshot() (incl. readiness slash/audio, resource_blocked, voice-stuck); Audio-Option delegiert an HealthMonitor.run_readiness_probe() (cooldown + single-flight). Modul-Level def setup(bot): bot.add_cog(HealthAdminCog(bot)) (gueltige Extension, bestehende Konvention, KEIN __init__.py).",
+      "acceptance_criteria": [
+        "/health ist ephemeral; genau ein Admin-Slash-Command (Sollmenge eingehalten).",
+        "Schutz verlangt ECHTE Admin-/Owner-Checks: guild_permissions.administrator==True ODER Guild-Owner ODER ADMIN_OWNER_IDS. Ein normaler Guild-Member OHNE administrator-Perm wird abgewiesen (ephemeral 'unauthorized' + Log); kein Status-Leak.",
+        "commands/admin/health.py enthaelt Modul-Level def setup(bot): bot.add_cog(...) und wird via main.py-Loader geladen (commands.admin.health); KEIN __init__.py angelegt (namespace-package-Konvention).",
+        "Antwort erfolgt < 3s ohne Audio-Probe.",
+        "Audio-Option nutzt HealthMonitor.run_readiness_probe(); wiederholte/parallele Audio-Aufrufe werden durch single-flight + cooldown gebuendelt, nicht mehrfach gestartet."
+      ]
+    },
+    {
+      "id": "T7",
+      "agent": "backend",
+      "title": "Vollstaendige 20s-Shutdown-Gesamtdeadline und begrenztes Boot->READY; HealthMonitor als einziger READY-Notifier",
+      "plan_ref": "Plan Task 6/7",
+      "priority": 4,
+      "dependencies": ["T2"],
+      "scope": ["main.py"],
+      "description": "close_bot() bleibt auf 20s begrenzt. on_ready begrenzt alle pre-READY-Schritte mit HEALTH_SLA_BOOT_READY_S, initialisiert Spotify einmal ohne internen Retry und ruft HealthMonitor.start() als einzigen READY-Notifier auf. Incident/RECOVERY bleiben extern.",
+      "acceptance_criteria": [
+        "Die VOLLSTAENDIGE Shutdown-Sequenz terminiert deterministisch <= HEALTH_SHUTDOWN_BUDGET (20s) auch bei haengender clean_session (inkl. Force-Cleanup).",
+        "Bei Timeout/erschoepftem Graceful-Budget werden verbleibende voice_clients/ffmpeg/librespot-Ressourcen hart gecleaned (to_thread), begrenzt auf HEALTH_FORCE_CLEANUP_BUDGET; keine verwaisten Kindprozesse nach TimeoutStopSec.",
+        "on_ready ruft HealthMonitor.start() genau einmal auf (_ugoku_initialized-Guard) und enthaelt KEINEN direkten sd_notify('READY=1')-Aufruf (EINZIGER READY-Notifier ist HealthMonitor.start).",
+        "on_ready enthaelt KEINE Alert-/Incident-/restart.marker-Logik (RECOVERY laeuft extern via ExecStartPost).",
+        "_ugoku_closing-Guard bleibt; nur die vereinbarten Zeilen in main.py werden geaendert."
+      ]
+    },
+    {
+      "id": "T8",
+      "agent": "qa",
+      "title": "Tests: Lifecycle/close-cleanup-disconnect + queue-isolierte Readiness + Voice-E2E-Decode + RESOURCE_BLOCKED + slash_ready/audio_ready + /health-Registration/Protection + verbindliche Coverage >=80",
+      "plan_ref": "Plan Task 8",
+      "priority": 5,
+      "dependencies": ["T2", "T3", "T4", "T5", "T7"],
+      "scope": ["tests/test_health_monitor.py", "tests/test_healthcheck_cli.py", "tests/test_audio_probe.py", "tests/test_shutdown_budget.py", "tests/test_close_cleanup_disconnect.py", "tests/test_admin_health_command.py", "tests/test_resource_blocked_predicates.py"],
+      "description": "QA schreibt NUR Tests. Unit- + Integrationstests (unittest.IsolatedAsyncioTestCase, passend zu bestehendem Stil): HealthMonitor snapshot/write_state + stdlib sd_notify-no-op + EINZIGER READY-Notifier + single-flight/cooldown + resource_blocked-Praedikate; healthcheck.py Exit-Codes 0/2/3/4/5/6/7/8 + Evaluation-Order + genau-ein-Restart-Guard (restart_triggered) + --on-failure/--recover Idempotenz + KEINE NOTIFY_SOCKET-Abhaengigkeit; audio_probe cleanup/kein-Queue-Kontakt/Voice-E2E-Decode (bytes_read>=1)/N-A-Pfad; EXPLIZITE Integrationstests fuer close/cleanup/disconnect (haengende clean_session -> Force-Cleanup innerhalb 20s; verwaiste Kindprozesse ffmpeg/librespot -> killed; voice_client disconnect); queue-isolierte Slash-/Audio-Readiness-Proben; /health Registration (setup add_cog) + Protection (administrator/owner erlaubt, normaler Member abgewiesen) + single-flight; incident_id-Weitergabe OUTAGE->RESTART->RECOVERY (gleiche ID).",
+      "acceptance_criteria": [
+        "pytest/unittest laeuft gruen fuer alle neuen Tests inkl. bestehendem test_server_session.py.",
+        "healthcheck-Exit-Codes 0/2/3/4/5/6/7/8 sind je durch einen Test abgedeckt; Evaluation-Order eingehalten; GATEWAY_DOWN-ODER-Kombination (!connected/closed/Latenz/!ready-nach-Grace) wird geprueft; slash_ready/audio_ready als Exit 7/8 verbindlich getestet.",
+        "Ein Test beweist, dass healthcheck.py ohne NOTIFY_SOCKET und ohne laufenden Bot laeuft (G4).",
+        "Ein Test beweist --on-failure- und --recover-Idempotenz sowie incident_id-Weitergabe OUTAGE -> RESTART -> RECOVERY (gleiche ID).",
+        "Ein Integrationstest beweist deterministischen close_bot-Abbruch + Force-Cleanup bei haengender clean_session (Mock mit sleep) innerhalb von 20s.",
+        "Ein Integrationstest beweist close/cleanup/disconnect: verwaiste Kindprozesse (ffmpeg/librespot) werden durch Force-Cleanup beendet; voice_client disconnect wird erzwungen.",
+        "Ein Test beweist, dass probe_audio session_manager.server_sessions nicht mutiert (assert unchanged), den N/A-Pfad bei deaktiviertem Spotify korrekt liefert UND Voice-E2E-Decode (bytes_read>=1 im Erfolgsfall).",
+        "Ein Test beweist single-flight + cooldown der Audio-Probe (parallele/serielle Aufrufe -> eine Probe).",
+        "Ein Test beweist resource_blocked-Praedikate (voice_connect_stuck/ffmpeg_orphans/librespot_listener_stale) -> blocked=true mit korrektem reason.",
+        "Ein Test beweist /health-Registration (setup fuegt Cog hinzu) und Protection (administrator/owner erlaubt; normaler Member ohne administrator-Perm abgewiesen).",
+        "Coverage der Module bot/health/* UND scripts/healthcheck.py UND commands/admin/health.py ist VERBINDLICH >= 80 % (Coverage-Gate schlaegt fehl darunter, kein 'falls verfuegbar').",
+        "QA aendert NUR Dateien unter tests/ (kein Produktionscode, kein docs/acceptance-Protokoll)."
+      ]
+    },
+    {
+      "id": "T9",
+      "agent": "docs",
+      "title": "Produktions-Runbook erstellen (Architektur, Hooks, SLA-Math, RESOURCE_BLOCKED, Diagnose)",
+      "plan_ref": "Plan Task 9",
+      "priority": 6,
+      "dependencies": ["T6", "T4", "T8"],
+      "scope": ["docs/runbooks/bot-produktionsueberwachung.md"],
+      "description": "Runbook mit Architektur, Diagnose, Recovery und SLA-Math vom fault_started_at bis zum operationalen Abschluss nach strikt gesundem frischem post-READY-State und durable eingereihtem RECOVERY <=300s; externe Zustellung bleibt separat pending/retryfaehig. Dokumentiert werden ausserdem NotifyAccess=all, TimeoutStartSec=35s als kombinierte 30s+5s-Aktivierungsgrenze, ein begrenzter Spotify-Start und der Legacy-Linux-Constraint-Pfad.",
+      "acceptance_criteria": [
+        "Runbook erklaert beide Fehlerklassen + RESOURCE_BLOCKED und ihre Erkennungs-/Restart-Pfade (stdlib sd_notify-Watchdog vs State+Probe; Exit 3/6/7/8) inkl. externer Alert-Hooks (OnFailure/ExecStartPost).",
+        "Dokumentiert den Ownership-Split: Bot schreibt NUR health.json; scripts/healthcheck.py ist EINZIGER Incident-Owner (incident.json/fail.count).",
+        "Dokumentiert die 295s-SLA bis zum operationalen Recovery-Abschluss mit allen sechs Budgets und unabhaengiger Alert-Zustellung.",
+        "Dokumentiert den root-eigenen, eng begrenzten Restart (sudoers.d) und dass KEINE allgemeinen systemctl-Rechte vergeben werden.",
+        "Enthaelt kopierfaehige systemctl-/journalctl-Befehle, healthcheck.py-Aufrufe (inkl. --on-failure/--recover) und incident_id-basierte Diagnose.",
+        "Enthaelt Schritt-fuer-Schritt-Fehluebungen (Gateway-Sim, kuenstlicher Loop-Block, RESOURCE_BLOCKED-Sim).",
+        "Verweist korrekt auf deploy-Units (incl. ugoku-alert-onfailure.service), sudoers-Snippet und /health-Command; keine Spekulation ueber nicht implementierte Teile."
+      ]
+    },
+    {
+      "id": "T10",
+      "agent": "docs",
+      "title": "Staging- & Produktions-ABNAHME-PROTOKOLL mit Fehleruebungen (docs erstellt Protokoll; QA liefert nur Tests)",
+      "plan_ref": "Plan Task 10",
+      "priority": 7,
+      "dependencies": ["T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9"],
+      "scope": ["docs/acceptance/001-bot-produktionsueberwachung.md"],
+      "description": "Abnahme-PROTOKOLL (durch docs; QA steuert nur Test-Ergebnisse aus T8 bei, schreibt kein Protokoll): alle Done-When-Kriterien nachweisbar geprueft (Gateway-Sim -> 2-Fail-Restart < SLA 300s mit Start/Ende-Timestamps + OUTAGE/RESTART/RECOVERY mit gemeinsamer incident_id via Timer-Pfad; Loop-Block-Sim -> systemd-Watchdog-Kill + OnFailure=OUTAGE + Restart + ExecStartPost=RECOVERY; RESOURCE_BLOCKED-Sim -> Exit 6 + Alarm + Auto-Recovery; slash_ready/audio_ready verbindlich geprueft (Exit 7/8); Audio-/Slash-Readiness ohne Queue-Stoerung + Voice-E2E-Decode; /health-Status korrekt + Protection; close/cleanup/disconnect-Integrationstests gruen; Coverage >=80).",
+      "acceptance_criteria": [
+        "Pro Fehlerklasse (Gateway-Verlust, blockierter Loop, RESOURCE_BLOCKED) gibt es einen dokumentierten, reproduzierbaren Uebungsdurchlauf mit Ergebnis.",
+        "Nachweis SLA: fault_started_at bis operationalem Abschluss nach striktem frischem post-READY-State und durable eingereihtem RECOVERY <=300s; Zustellzeit wird separat erfasst.",
+        "Nachweis: 2 Fehlversuche -> genau ein kontrollierter Restart (Timer-Pfad); Watchdog-Kill -> OnFailure=OUTAGE -> Restart -> ExecStartPost=RECOVERY (Watchdog-Pfad); beides mit gemeinsamer incident_id (persistent via RuntimeDirectoryPreserve=restart).",
+        "Nachweis: Discord meldet Ausfall (OUTAGE), Restart (RESTART) und Wiederherstellung (RECOVERY) im Admin-Kanal - alles mit derselben incident_id; Alarmierung NIEMALS aus dem Bot-Loop.",
+        "Nachweis: RESOURCE_BLOCKED (voice/ffmpeg/librespot) wird erkannt, alarmiert und nach Recovery automatisch aufgehoben.",
+        "Nachweis: slash_ready/audio_ready sind verbindlich (Exit 7/8 negativ, Exit 0 positiv).",
+        "Nachweis: automatisierte queue-isolierte Slash-/Audio-Readiness-Proben stoeren keine aktive Musik-Queue; Voice-E2E-Decode bewiesen (bytes_read>=1).",
+        "Nachweis: vollstaendiger Shutdown innerhalb 20s ohne verwaiste Kindprozesse; close/cleanup/disconnect-Tests gruen.",
+        "Abnahme-Dokument verlinkt Runbook (T9) und Test-Ergebnisse (T8, Coverage >=80)."
+      ]
+    }
+  ],
+  "task_graph_parallelism": {
+    "tier_1": ["T1"],
+    "tier_2_parallel": ["T3", "T5", "T6"],
+    "tier_3": ["T2"],
+    "tier_4_parallel": ["T4", "T7"],
+    "tier_5": ["T8"],
+    "tier_6": ["T9"],
+    "tier_7": ["T10"],
+    "dependency_corrections": [
+      "T5 vor T2: monitor.run_readiness_probe nutzt probe_audio (T5); T2 deps [T1,T5]; alerter.py aus T2 entfernt (G1/G8).",
+      "T3 deps [T1] (liest health.json-Schema aus T1; incident-/fail.count-Owner ist EINZIG healthcheck.py); alerter nicht mehr aus T2 importiert.",
+      "T6 deps [T1] (Intervalle/Pfade aus config); Hook-CLI-Vertrag (--on-failure/--recover) ist shared_contract mit T3 (beide implementieren dagegen, parallel moeglich).",
+      "T4 deps [T2,T5] (/health delegiert an monitor.run_readiness_probe -> probe_audio).",
+      "T7 deps [T2] (on_ready ruft nur HealthMonitor.start; kein alerter mehr).",
+      "T8 deps [T2,T3,T4,T5,T7] (testet monitor, healthcheck, /health, probe, shutdown; NUR tests/).",
+      "T10 agent -> docs (erstellt Abnahme-PROTOKOLL); QA (T8) liefert nur Test-Ergebnisse, schreibt kein Protokoll (G7)."
+    ],
+    "note": "Innerhalb eines Tiers sind Tasks unabhaengig voneinander parallel ausfuehrbar (disjunkte Scope-Prefixe)."
+  },
+  "file_ownership_boundaries": {
+    "backend": ["config.py", ".env.template", "bot/health/", "commands/admin/health.py", "scripts/healthcheck.py", "main.py"],
+    "tf-infra": ["deploy/ugoku.service", "deploy/ugoku-health.service", "deploy/ugoku-health.timer", "deploy/ugoku-alert-onfailure.service", "deploy/ugoku-restart.sudoers"],
+    "qa": ["tests/"],
+    "docs": ["docs/runbooks/", "docs/acceptance/"],
+    "ownership_split_files": {
+      "health.json": {"writer": "BOT (HealthMonitor)", "mode": "0644"},
+      "incident.json": {"writer": "scripts/healthcheck.py (EIN Incident-Owner; probe/--on-failure/--recover)", "mode": "0640"},
+      "fail.count": {"writer": "scripts/healthcheck.py", "mode": "0644"}
+    },
+    "shared_contracts_to_keep_consistent": [
+      "WatchdogSec=60 (tf-infra) <=> HEALTH_MONITOR_INTERVAL=20 (backend, einziger Takt); Watchdog NUR fuer blockierten Loop; HealthMonitor.start ist EINZIGER READY-Notifier",
+      "/run/ugoku-Pfade + Eigentuemler leadt3ch + Modi (health.json 0644, incident.json 0640, fail.count 0644) + atomare Writes + RuntimeDirectoryPreserve=restart <-> monitor (health.json) + healthcheck (incident.json/fail.count)",
+      "incident_id-Threading <-> scripts/healthcheck.py (EIN Owner: probe/--on-failure/--recover) + systemd OnFailure/ExecStartPost-Hooks (tf-infra); BOT beruehrt incident.json NIEMALS",
+      "healthcheck-CLI-Modi (--on-failure/--recover) <-> tf-infra OnFailure=ugoku-alert-onfailure.service + ExecStartPost=scripts/healthcheck.py --recover",
+      "HEALTH_SHUTDOWN_BUDGET=20 (backend, vollstaendig) <=> TimeoutStopSec=25 (tf-infra)",
+      "Restart ausschliesslich via 'sudo -n /bin/systemctl --no-block restart ugoku.service' (sudoers.d, tf-infra) <-> healthcheck-Aufruf (backend)",
+      "SLA-Obergrenzen (HEALTH_SLA_*, config) <=> RestartSec=5 + AccuracySec=2s (tf-infra) + Boot->READY (backend)",
+      "RESOURCE_BLOCKED-Praedikate (voice/ffmpeg/librespot, config-Grenzen) <-> monitor.snapshot (schreibt health.json) <-> healthcheck Exit 6"
+    ],
+    "rule": "Ein Agent aendert nur Dateien unter seinen Prefixen; Konflikte nur an dokumentierten shared_contracts (oben). CCR-Reviews pruefen Grenzeinhaltung. QA schreibt NUR tests/; docs schreibt Runbook (T9) UND Abnahme-Protokoll (T10)."
+  },
+  "acceptance_gate_done_when": [
+    "Bot erkennt fehlende Gateway-Verbindung (State+Probe, Exit 3), blockierten Event Loop (stdlib sd_notify-Watchdog + OnFailure=OUTAGE) und RESOURCE_BLOCKED (Exit 6, voice/ffmpeg/librespot-Praedikate).",
+    "slash_ready/audio_ready sind verbindlich: Exit 7 (SLASH_NOT_READY) bzw. Exit 8 (AUDIO_NOT_READY) bei false nach Grace; Exit 0 nur bei slash_ready==true UND audio_ready in {true,null}.",
+    "SLA fault_started_at bis operationalem Recovery-Abschluss <=300s: Detection<=225s, RestartTrigger<=5s, Stop<=25s, RestartSec<=5s, Boot->READY<=30s, Recovery-Verarbeitung<=5s; RECOVERY wird davor durable eingereiht, Zustellung bleibt unabhaengig.",
+    "Discord meldet Ausfall (OUTAGE), Restart (RESTART) und Wiederherstellung (RECOVERY) - alles mit gemeinsamer, via RuntimeDirectoryPreserve=restart persistenter incident_id; Alarmierung ausschliesslich ueber externe Hooks (OnFailure/ExecStartPost) bzw. healthcheck-Timer, NIEMALS aus dem Bot-Loop.",
+    "Ownership-Split eingehalten: Bot schreibt NUR health.json; scripts/healthcheck.py ist EINZIGER Incident-Owner (incident.json/fail.count).",
+    "/health (nur administrator-/Owner-Berechtigte, keine Guild-Mitgliedschaft) und automatisierte queue-isolierte Audio-/Slash-Readiness-Proben (incl. Voice-E2E-Decode) sind nachweisbar erfolgreich und stoeren keine Nutzer-Queue.",
+    "Vollstaendiger Shutdown innerhalb 20s (inkl. Force-Cleanup) ohne verwaiste Kindprozesse; close/cleanup/disconnect abgesichert.",
+    "Lifecycle-Integrationstests decken haengende Streams, Kindprozesse und close/cleanup/disconnect ab; Coverage bot/health/* + scripts/healthcheck.py + commands/admin/health.py verbindlich >=80 (T8).",
+    "Runbook (T9) enthaelt Diagnose, Recovery (root-eigener Restart), RESOURCE_BLOCKED, SLA-Math und Eskalation; Abnahme-Protokoll (T10, docs) weist alle Kriterien nach."
+  ],
+  "out_of_scope": [
+    "Keine externe Monitoring-Plattform/SaaS (Plan-Decision-Log).",
+    "Keine HTTP-Health-Endpoint (Alternative B verworfen).",
+    "Keine neue Fremd-Abhaengigkeit (stdlib-Notifier; keine fremde notify-Bibliothek).",
+    "Keine allgemeinen systemctl-/sudo-Rechte (nur genau ein restart-Kommando via sudoersd).",
+    "Kein Bot-Loop-Alarm-/-Restart-Pfad (G2: Alarmierung/Restart NUR extern via healthcheck-Timer/OnFailure/ExecStartPost).",
+    "Keine Aenderung an Musik-Playback-Logik, Queue-Management oder Chatbot-Features.",
+    "Keine Datenbank-Migration; Health-Config ausschliesslich ENV/config.py + State-/Incident-Dateien.",
+    "Kein neuer Task ueber T1-T10 (G16)."
+  ],
+  "risks": [
+    {"risk": "Type=notify ohne funktionierendes stdlib sd_notify haengt Start (systemd wartet)", "mitigation": "stdlib sd_notify nur bei NOTIFY_SOCKET; HealthMonitor.start sendet READY einmal; dev/manuell ohne systemd startet normal (no-op)."},
+    {"risk": "Audio-Probe stoert dennoch Nutzer (falsche Annahme)", "mitigation": "Probe headless ohne Voice-Connect/queue, nur Produktions-Pfad (bytes-Decode), N/A wenn Spotify fehlt; T5 + T8 beweisen keine Mutation."},
+    {"risk": "Restart-Schleife bei dauerhaft kaputtem Spotify/Gateway", "mitigation": "2-Strike + RestartSec=5; genau-ein-RESTART-Guard (restart_triggered) pro incident_id; begrenzter OUTAGE-Webhook; Runbook Eskalation."},
+    {"risk": "sudoersd zu weit gefasst", "mitigation": "root:root 0440; nur '/bin/systemctl --no-block restart ugoku.service'; kein Shell-Kontext; visudo -cf-Verification in T6."},
+    {"risk": "Shutdown-Freeze trotz Budget", "mitigation": "vollstaendige 20s-Gesamtdeadline + Force-Cleanup-Teilbudget + TimeoutStopSec=25 SIGKILL-Spielraum; close/cleanup/disconnect-Integrationstest in T8."},
+    {"risk": "OnFailure/ExecStartPost-Hook schlaegt fehl / Webhook unreachable", "mitigation": "ExecStartPost='-'-praefix ignoriert Fehler (Service nicht failed); alle Webhooks auf HEALTH_ALERT_TIMEOUT begrenzt; --recover/--on-failure idempotent; journald-Diagnose im Runbook."},
+    {"risk": "incident.json geht zwischen Restart verloren", "mitigation": "RuntimeDirectoryPreserve=restart + atomare Writes (tmp+os.replace); Eigentuemler leadt3ch; Runbook-Diagnose."},
+    {"risk": "Normaler Member fuehrt /health aus (Informationsleck)", "mitigation": "ECHTE Admin-/Owner-Checks (administrator-Perm/Guild-Owner/ADMIN_OWNER_IDS); T8 testet Abweisung normaler Mitglieder."},
+    {"risk": "SLA von 300s wird bei langsalem Boot/Netzwerk gerissen", "mitigation": "Das 30s-In-Process-Budget erzwingt Boot->READY; TimeoutStartSec=35s umfasst zusaetzlich den 5s-Recovery-Check, und ein einzelner Spotify-Initialisierungsversuch verhindert unbegrenzte Retries. Alle sechs Budgets ergeben konservativ 295s."}
+  ]
+}

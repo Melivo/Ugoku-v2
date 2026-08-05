@@ -1,0 +1,24 @@
+language: TypeScript
+runtime: Node.js >=20
+framework: none-cli-service-modules
+orm: none
+validation: TypeScript types and manual runtime guards
+migration: none
+test: Vitest
+linter_formatter: Biome
+package_manager: npm workspaces
+source: detected
+detected_from:
+  - package.json
+  - packages/pros-cli/package.json
+  - tsconfig.json
+  - tsconfig.base.json
+  - packages/pros-cli/tsconfig.json
+verify:
+  detect: package.json
+  syntax:
+    cmd: "mise run typecheck"
+    skip_if_missing: "mise"
+  tests:
+    cmd: "mise run test"
+    skip_if_missing: "mise"

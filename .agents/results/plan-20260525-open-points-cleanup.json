@@ -1,0 +1,51 @@
+{
+  "id": "plan-20260525-open-points-cleanup",
+  "title": "Offene Punkte Cleanup",
+  "status": "Completed",
+  "workflow": "ultrawork",
+  "scope": {
+    "included": [
+      "release-dep0190-fix",
+      "runtime-workflow-entry-points",
+      "api-bridge-tracker-alignment",
+      "credential-store-deferral-decision"
+    ],
+    "excluded": [
+      "oauth-token-exchange",
+      "credential-persistence",
+      "refresh-token-revocation"
+    ]
+  },
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Fix release dry-run DEP0190 warning",
+      "priority": "P0",
+      "status": "DONE"
+    },
+    {
+      "id": 2,
+      "title": "Add Entry Points to four runtime workflows",
+      "priority": "P0",
+      "status": "DONE"
+    },
+    {
+      "id": 3,
+      "title": "Align API bridge machine tracker with Markdown plan",
+      "priority": "P0",
+      "status": "DONE"
+    },
+    {
+      "id": 4,
+      "title": "Document OS credential store deferral",
+      "priority": "P0",
+      "status": "DONE"
+    },
+    {
+      "id": 5,
+      "title": "Run verification and ShipGate",
+      "priority": "P0",
+      "status": "DONE"
+    }
+  ]
+}

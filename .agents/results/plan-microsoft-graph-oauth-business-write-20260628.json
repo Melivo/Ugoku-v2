@@ -1,0 +1,257 @@
+{
+  "sessionId": "microsoft-graph-oauth-business-write-20260628",
+  "workflow": "plan",
+  "status": "ACTIVE",
+  "created": "2026-06-28",
+  "title": "Microsoft Graph OAuth Business Write",
+  "complexity": "complex",
+  "designReference": "docs/plans/designs/006-microsoft-graph-oauth-business-write.md",
+  "contractReference": ".agents/results/api-contracts/microsoft-graph-oauth-business-write.md",
+  "trackerReference": "docs/plans/work/019-microsoft-graph-oauth-business-write.md",
+  "goal": "Implement delegated Microsoft Graph OAuth business-write support for customer-facing OpenCode and AnythingLLM MCP usage while forbidding send, delete, raw Graph, and application-permission access.",
+  "targetUsers": [
+    "All acquired customers who use the Microsoft Graph MCP integration through OpenCode and/or AnythingLLM"
+  ],
+  "constraints": [
+    "Use delegated Microsoft user permissions only",
+    "Do not store tokens or secrets in OpenCode or AnythingLLM config",
+    "Do not expose direct email send, email delete, calendar delete, or raw Graph passthrough tools",
+    "Use a customer-facing MCP server name without unnecessary Pros branding, or document a compatibility alias",
+    "If Microsoft Graph implementation behavior is unclear or fails, read official Microsoft documentation before guessing",
+    "Attachment support must use extension allowlist, MIME validation, and conservative size limits"
+  ],
+  "mustHave": [
+    "OAuth setup and status for business-write-safe delegated scopes",
+    "OpenCode and AnythingLLM command-only MCP configuration",
+    "Calendar event create/update/invite with delegated shared calendar targets",
+    "Email draft create/update with delegated shared mailbox targets",
+    "Allowed attachment support for drafts",
+    "Server-side confirmation gates for write operations",
+    "Tests for policy, forbidden operations, status states, attachments, shared targets, and MCP tools",
+    "Customer-facing documentation and runtime workflow updates"
+  ],
+  "forbidden": [
+    "Direct email send",
+    "Email deletion",
+    "Calendar deletion",
+    "Raw Microsoft Graph API tool",
+    "Application-wide mailbox/calendar permissions",
+    "Archive, binary, executable, script, source-code, and macro-office attachments"
+  ],
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Graph-MCP kundentauglich benennen",
+      "agent": "backend",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [],
+      "acceptanceCriteria": [
+        "Visible Microsoft Graph MCP server name avoids unnecessary Pros branding",
+        "Compatibility alias is documented if retained",
+        "Existing tests and evaluations are updated to the canonical name"
+      ]
+    },
+    {
+      "id": 2,
+      "title": "OAuth-Scopes und Statusmodell auf business-write-safe erweitern",
+      "agent": "backend",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [1],
+      "acceptanceCriteria": [
+        "Microsoft Graph scopes include delegated mail draft and calendar write support",
+        "Status differentiates needs-auth, ready-read, ready-business-write-safe, limited, needs-reauth, and needs-admin-consent",
+        "No token or secret material appears in output"
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Graph-Safety-Policy implementieren",
+      "agent": "backend",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [2],
+      "acceptanceCriteria": [
+        "Allowlist and denylist are enforced server-side",
+        "Write operations require explicit confirmation",
+        "Delegated shared mailbox/calendar targets are validated",
+        "Send, delete, and raw Graph operations are impossible through exposed tools"
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Calendar Write Functions implementieren",
+      "agent": "backend",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [3],
+      "acceptanceCriteria": [
+        "Calendar events can be created with subject, time, timezone, body, location, and attendees",
+        "Calendar events can be updated without deletion semantics",
+        "Attendees can be added/invited",
+        "Shared calendar targets work when delegated permissions allow access",
+        "Ambiguous recurring event edits are rejected conservatively"
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Mail Draft Functions implementieren",
+      "agent": "backend",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [3],
+      "acceptanceCriteria": [
+        "Email drafts can be created without sending",
+        "Existing drafts can be updated only when the message is still a draft",
+        "Shared mailbox targets work when delegated permissions allow access",
+        "Non-draft update attempts are rejected"
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Draft Attachment Support implementieren",
+      "agent": "backend",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [5],
+      "acceptanceCriteria": [
+        "Allowed extensions include pdf, docx, xlsx, pptx, odt, ods, odp, txt, csv, tsv, png, jpg, jpeg, gif, and webp",
+        "Attachment validation checks extension, MIME type, and size limits",
+        "Archives, binaries, executables, scripts, source code, and macro Office files are rejected",
+        "Attachments can be added to drafts only"
+      ]
+    },
+    {
+      "id": 7,
+      "title": "MCP Tools erweitern",
+      "agent": "backend",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [4, 5, 6],
+      "acceptanceCriteria": [
+        "Explicit schemas exist for calendar create/update/invite, draft create/update, and draft attachment tools",
+        "Write tools enforce confirmation input before Graph calls",
+        "Forbidden send/delete/raw tools are not exposed",
+        "Tool descriptions clearly state draft-only and no-send boundaries"
+      ]
+    },
+    {
+      "id": 8,
+      "title": "OpenCode/AnythingLLM MCP Config erweitern",
+      "agent": "backend",
+      "priority": "P1",
+      "status": "TODO",
+      "dependencies": [1, 7],
+      "acceptanceCriteria": [
+        "OpenCode can be configured with the Microsoft Graph MCP server",
+        "AnythingLLM can be configured with the Microsoft Graph MCP server",
+        "Client config contains only command and args, no secrets",
+        "Managed-state and doctor checks understand the Graph MCP entry"
+      ]
+    },
+    {
+      "id": 9,
+      "title": "CLI/Doctor/Status UX aktualisieren",
+      "agent": "backend",
+      "priority": "P1",
+      "status": "TODO",
+      "dependencies": [2, 3],
+      "acceptanceCriteria": [
+        "CLI help documents Graph auth/status/config flows",
+        "pros doctor reports Graph readiness and missing setup clearly",
+        "Status output explains limited scopes and reauth requirements",
+        "Admin-consent blocks are reported without exposing sensitive details"
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Tests ergänzen",
+      "agent": "qa",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [3, 4, 5, 6, 7, 8, 9],
+      "acceptanceCriteria": [
+        "Tests cover forbidden operations and missing confirmation",
+        "Tests cover draft-only updates and calendar recurrence rejection",
+        "Tests cover attachment allowlist and denylist",
+        "Tests cover shared mailbox/calendar target mapping and permission errors",
+        "Tests cover readiness states and no-secret client configs"
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Microsoft-Doku-Research Gate ausführen wenn nötig",
+      "agent": "backend",
+      "priority": "P1",
+      "status": "TODO",
+      "dependencies": [4, 5, 6],
+      "acceptanceCriteria": [
+        "Official Microsoft documentation is consulted for unclear Graph endpoints or failed implementation assumptions",
+        "Any documented behavior that affects implementation is recorded in progress notes or code comments where useful",
+        "No Graph behavior is guessed when blocked"
+      ]
+    },
+    {
+      "id": 12,
+      "title": "README und Runtime-Workflow aktualisieren",
+      "agent": "docs",
+      "priority": "P1",
+      "status": "TODO",
+      "dependencies": [7, 8, 9],
+      "acceptanceCriteria": [
+        "Customer-facing setup explains OAuth, OpenCode, and AnythingLLM configuration",
+        "Allowed and forbidden actions are documented",
+        "Attachment allowlist and shared mailbox/calendar limits are documented",
+        "Runtime workflow reflects first-time Graph setup"
+      ]
+    },
+    {
+      "id": 13,
+      "title": "End-to-end Smoke vorbereiten",
+      "agent": "qa",
+      "priority": "P1",
+      "status": "TODO",
+      "dependencies": [10, 12],
+      "acceptanceCriteria": [
+        "Smoke covers first-time OAuth status path with no stored token",
+        "Smoke covers MCP status and safe draft/calendar flows with mocks or controlled Graph calls",
+        "Smoke verifies forbidden send/delete/raw operations are unavailable",
+        "Smoke verifies OpenCode and AnythingLLM config surfaces"
+      ]
+    }
+  ],
+  "doneWhen": [
+    "Graph OAuth supports business-write-safe delegated scopes",
+    "Customer-facing Graph MCP naming is implemented or compatibility alias is documented",
+    "Calendar create/update/invite works with delegated user and shared calendar targets",
+    "Mail draft create/update and allowed attachments work with delegated user and shared mailbox targets",
+    "Direct send, email delete, calendar delete, and raw Graph passthrough are impossible through exposed MCP tools",
+    "OpenCode and AnythingLLM can be configured with command-only Graph MCP config",
+    "Tests cover safety policy and forbidden operations",
+    "Docs explain customer setup and safety boundaries",
+    "Unclear Microsoft Graph behavior is resolved by reading official Microsoft documentation"
+  ],
+  "decisionLog": [
+    {
+      "date": "2026-06-28",
+      "decision": "Use Complex plan protocol",
+      "rationale": "The work spans OAuth, Graph API, MCP tools, client configuration, tests, and docs with cross-boundary contracts."
+    },
+    {
+      "date": "2026-06-28",
+      "decision": "Use delegated Microsoft user permissions only",
+      "rationale": "The user wants rights at the level of the signed-in user and no application-wide mailbox/calendar permissions."
+    },
+    {
+      "date": "2026-06-28",
+      "decision": "Forbid send, delete, and raw Graph operations",
+      "rationale": "Direct sends and deletions are explicitly disallowed, and raw Graph would bypass safety policy."
+    },
+    {
+      "date": "2026-06-28",
+      "decision": "Research official Microsoft documentation when blocked",
+      "rationale": "Graph behavior for drafts, attachments, shared resources, and recurrence can be subtle and must not be guessed."
+    }
+  ]
+}

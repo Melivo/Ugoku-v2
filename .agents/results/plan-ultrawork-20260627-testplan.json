@@ -1,0 +1,330 @@
+{
+  "sessionId": "ultrawork-20260627-testplan",
+  "workflow": "ultrawork",
+  "phase": "PLAN",
+  "sourcePlan": "docs/plans/work/018-pros-enduser-deterministic-setup-test.md",
+  "createdAt": "2026-06-27",
+  "userRequest": "lass uns den neuen testplan umsetzen",
+  "scope": {
+    "type": "qa-test-execution",
+    "summary": "Execute the deterministic Pros end-user setup test plan from a fresh end-user perspective.",
+    "inScope": [
+      "Inventory local prerequisites and current client/MCP state",
+      "Back up and wipe only approved Pros-managed MCP client entries",
+      "Install or update global pros CLI and verify auth safely",
+      "Initialize a fresh case folder outside the source repository",
+      "Install/update global tool skills without overwriting foreign skills",
+      "Prepare HubSpot MCP auth app and credentials through safe stdin/credential-store paths",
+      "Run the canonical README Mistral/OpenCode workflow starting with /werkzeuge-mcp-einrichtung",
+      "Verify OpenCode HubSpot MCP connectivity",
+      "Verify AnythingLLM HubSpot MCP through @agent stream-chat plus WebSocket",
+      "Run isolated Serena smoke test in a throwaway project",
+      "Run secret-safety checks and reconcile README/runtime documentation with observed behavior"
+    ],
+    "outOfScope": [
+      "Building unrelated product features",
+      "Deleting HubSpot OS credential-store entries without separate explicit approval",
+      "Removing unrelated MCP entries",
+      "Testing Serena against real user projects or memories",
+      "Posting secrets, OAuth codes, client secrets, tokens, or credential values in chat or files"
+    ]
+  },
+  "requirements": [
+    {
+      "id": "REQ-1",
+      "description": "Test must simulate a clean end-user setup while preserving unrelated local configuration.",
+      "acceptance": "Inventory, backups, dry-runs, and explicit approval gates exist before any destructive or write operation."
+    },
+    {
+      "id": "REQ-2",
+      "description": "HubSpot credentials and OAuth materials must remain secret-safe.",
+      "acceptance": "Secrets are supplied only through stdin or OS credential store; no secret values are logged, committed, or pasted."
+    },
+    {
+      "id": "REQ-3",
+      "description": "Mistral/OpenCode must execute the runtime MCP workflow from the fresh case folder.",
+      "acceptance": "Prompt begins with /werkzeuge-mcp-einrichtung and evidence shows runtime workflow plus pros-runtime-manifest were used."
+    },
+    {
+      "id": "REQ-4",
+      "description": "OpenCode and AnythingLLM HubSpot MCP setup must be verified through their real client paths.",
+      "acceptance": "OpenCode shows HubSpot connected after OAuth; AnythingLLM agent invocation exposes hubspot-* tools through WebSocket evidence."
+    },
+    {
+      "id": "REQ-5",
+      "description": "Serena must be tested in isolation only.",
+      "acceptance": "Throwaway project has its own .serena/project.yml and logs show that project, not real user project paths."
+    },
+    {
+      "id": "REQ-6",
+      "description": "Every deviation must become a bug, doc-fix, accepted decision, or release follow-up.",
+      "acceptance": "Final deviation ledger links each issue to an artifact or explicit decision."
+    }
+  ],
+  "contracts": {
+    "apiContractNeeded": false,
+    "apiContractRationale": "This is an operational end-to-end test execution plan. It exercises existing CLIs, client configs, OAuth, MCP runtimes, and documentation; it does not introduce a new cross-boundary API.",
+    "operationalContracts": [
+      {
+        "name": "approval-gate-contract",
+        "rule": "Any command that writes client config, wipes entries, stores credentials, or performs OAuth-sensitive setup requires explicit user approval after inventory or dry-run evidence."
+      },
+      {
+        "name": "secret-handling-contract",
+        "rule": "Secrets are never requested in chat; stdin-only or OS credential-store paths are used, and outputs are redacted."
+      },
+      {
+        "name": "mcp-config-scope-contract",
+        "rule": "Only planned Pros-managed or explicitly user-approved test entries may be removed or changed; unrelated entries are preserved."
+      },
+      {
+        "name": "fallordner-contract",
+        "rule": "Fresh case folder must be outside the source repository and all test evidence must avoid secrets."
+      },
+      {
+        "name": "anythingllm-proof-contract",
+        "rule": "AnythingLLM verification requires @agent stream-chat plus WebSocket /api/agent-invocation/<uuid>; any CLI alone is insufficient."
+      },
+      {
+        "name": "serena-isolation-contract",
+        "rule": "Serena smoke test must use a throwaway project with its own .serena/project.yml and must not alter real memories or project configs."
+      }
+    ]
+  },
+  "assumptions": [
+    "The phrase 'neuen testplan' refers to docs/plans/work/018-pros-enduser-deterministic-setup-test.md.",
+    "The user wants to execute the plan, not redesign it from scratch.",
+    "The current host is the intended Windows test host.",
+    "User will provide explicit approvals and secret input only through safe terminal/stdin flows when needed.",
+    "AnythingLLM Desktop/backend and OpenCode CLI may require local state checks before later steps can proceed."
+  ],
+  "alternativesConsidered": [
+    {
+      "option": "Execute the entire test plan automatically in one pass",
+      "decision": "rejected",
+      "rationale": "The plan contains write, wipe, credential, OAuth, and desktop-client steps that require approval gates and secret-safe handoffs."
+    },
+    {
+      "option": "Run only read-only inventory first, then proceed gate by gate",
+      "decision": "selected",
+      "rationale": "Minimizes risk, preserves unrelated local state, and matches the existing plan constraints."
+    },
+    {
+      "option": "Use the older first-use setup plan as the execution basis",
+      "decision": "rejected",
+      "rationale": "The deterministic setup plan supersedes the earlier plan and includes later AnythingLLM, Mistral, and Serena isolation findings."
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Read-only host inventory and prerequisites",
+      "agent": "qa",
+      "priority": "P0",
+      "dependencies": [],
+      "status": "planned",
+      "acceptance": [
+        "OpenCode CLI, AnythingLLM, Node/npm, pros, and pros-mcp-hubspot-remote availability documented",
+        "Relevant config paths and current MCP keys inventoried without mutation",
+        "Blockers reported before proceeding"
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "Back up and safely wipe approved Pros-managed MCP config",
+      "agent": "qa",
+      "priority": "P0",
+      "dependencies": ["T1"],
+      "status": "planned",
+      "acceptance": [
+        "Backups exist outside repo with hashes",
+        "Dry-runs completed before writes",
+        "User explicitly approves any wipe",
+        "Only approved entries removed"
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Install/update pros CLI and verify auth",
+      "agent": "qa",
+      "priority": "P0",
+      "dependencies": ["T1"],
+      "status": "planned",
+      "acceptance": [
+        "Global @pro-select/pros-cli release/version documented",
+        "pros auth status succeeds or stdin-only auth path is used",
+        "No registry or release token appears in output"
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "Initialize fresh end-user case folder",
+      "agent": "qa",
+      "priority": "P0",
+      "dependencies": ["T3"],
+      "status": "planned",
+      "acceptance": [
+        "Case folder is outside source repo",
+        "pros init succeeds",
+        "pros doctor is green or warnings are explained"
+      ]
+    },
+    {
+      "id": "T5",
+      "title": "Install/update global tool skills",
+      "agent": "qa",
+      "priority": "P0",
+      "dependencies": ["T4"],
+      "status": "planned",
+      "acceptance": [
+        "pros tools and pros tools update dry-run executed",
+        "Actual update occurs only when safe",
+        "Foreign/non-Pros-managed skills are not overwritten"
+      ]
+    },
+    {
+      "id": "T6",
+      "title": "Prepare HubSpot MCP credentials",
+      "agent": "qa",
+      "priority": "P0",
+      "dependencies": ["T5"],
+      "status": "planned",
+      "acceptance": [
+        "Redirect URI http://127.0.0.1:19876/oauth/callback is confirmed",
+        "pros mcp hubspot credentials status is ready or user is prompted for stdin-only setup",
+        "No client secret is written to chat, repo, fallordner, or client config"
+      ]
+    },
+    {
+      "id": "T7",
+      "title": "Run canonical README Mistral/OpenCode workflow",
+      "agent": "qa",
+      "priority": "P0",
+      "dependencies": ["T4", "T6"],
+      "status": "planned",
+      "acceptance": [
+        "OpenCode/Mistral starts from the case folder",
+        "Prompt begins with /werkzeuge-mcp-einrichtung",
+        "Mistral reads runtime workflow and pros-runtime-manifest",
+        "Mistral uses pros mcp configure for OpenCode and AnythingLLM"
+      ]
+    },
+    {
+      "id": "T8",
+      "title": "Verify OpenCode HubSpot MCP",
+      "agent": "qa",
+      "priority": "P0",
+      "dependencies": ["T7"],
+      "status": "planned",
+      "acceptance": [
+        "pros mcp status opencode is ready",
+        "opencode mcp list shows hubspot connected after OAuth or a clear OAuth next step"
+      ]
+    },
+    {
+      "id": "T9",
+      "title": "Verify AnythingLLM HubSpot MCP through Agent/WebSocket",
+      "agent": "qa",
+      "priority": "P0",
+      "dependencies": ["T7"],
+      "status": "planned",
+      "acceptance": [
+        "pros mcp status anythingllm is ready",
+        "AnythingLLM workspace slug and backend reachability documented",
+        "@agent stream-chat yields websocketUUID",
+        "WebSocket evidence shows hubspot-* tools"
+      ]
+    },
+    {
+      "id": "T10",
+      "title": "Run isolated Serena smoke test",
+      "agent": "qa",
+      "priority": "P0",
+      "dependencies": ["T4"],
+      "status": "planned",
+      "acceptance": [
+        "Throwaway project outside real projects created",
+        ".serena/project.yml exists in throwaway project",
+        "Logs show throwaway project activation",
+        "Real Serena memories/configs remain unchanged"
+      ]
+    },
+    {
+      "id": "T11",
+      "title": "Run safety, documentation, and deviation closure checks",
+      "agent": "qa/docs/pm",
+      "priority": "P1",
+      "dependencies": ["T8", "T9", "T10"],
+      "status": "planned",
+      "acceptance": [
+        "pros doctor is green or all warnings are explained",
+        "No secrets found in repo, fallordner, logs, or client configs",
+        "README/runtime docs match observed flow or have documented fixes",
+        "Every deviation is linked to bug/doc-fix/accepted decision/release step"
+      ]
+    }
+  ],
+  "reviews": {
+    "step2Completeness": {
+      "status": "passed",
+      "notes": [
+        "All 14 source-plan tasks are mapped into 11 execution tasks with dependencies.",
+        "Secret handling, MCP wipe scope, Mistral workflow, AnythingLLM WebSocket proof, and Serena isolation are explicitly represented.",
+        "Acceptance criteria preserve the original Done When conditions."
+      ]
+    },
+    "step3MetaReview": {
+      "status": "passed",
+      "notes": [
+        "Review checked source plan, memory summary, prior execution memory, constraints, and Done When list.",
+        "Remaining uncertainty is explicitly listed as assumptions rather than hidden in implementation."
+      ]
+    },
+    "step4OverEngineering": {
+      "status": "passed",
+      "notes": [
+        "No new APIs, abstractions, or automation framework are proposed.",
+        "Execution is gate-by-gate because write/credential/OAuth actions require user approvals.",
+        "Tasks consolidate documentation and deviation closure into one final P1 task to avoid process bloat."
+      ]
+    }
+  },
+  "planGate": {
+    "planDocumented": true,
+    "assumptionsListed": true,
+    "alternativesConsidered": true,
+    "overEngineeringReviewDone": true,
+    "userConfirmation": true,
+    "status": "passed"
+  },
+  "implementationDomainCheck": {
+    "status": "completed",
+    "summary": "Phase 2 IMPL is a no-op for Backend, Frontend, and Mobile because the approved scope is operational QA test execution, not product feature implementation.",
+    "attempts": [
+      {
+        "method": "oma agent:spawn backend/frontend/mobile",
+        "status": "failed",
+        "reason": "Short agent IDs were not found by OpenCode/OMA and fell back to the default agent. No progress/result memory was written."
+      },
+      {
+        "method": "native OpenCode task agents backend-engineer/frontend-engineer/mobile-engineer",
+        "status": "passed",
+        "reason": "All three domain agents completed read-only checks and confirmed no code implementation is required for their domains."
+      }
+    ],
+    "domainResults": {
+      "backend": {
+        "implementationNeeded": false,
+        "evidence": "Plan scope is qa-test-execution; apiContractNeeded is false; tasks are assigned to qa or qa/docs/pm."
+      },
+      "frontend": {
+        "implementationNeeded": false,
+        "evidence": "No UI, React, CSS, component, or frontend feature work is listed; tasks are operational setup/verification tasks."
+      },
+      "mobile": {
+        "implementationNeeded": false,
+        "evidence": "No mobile terms or mobile deliverables are present; tasks are operational setup/verification tasks."
+      }
+    }
+  }
+}

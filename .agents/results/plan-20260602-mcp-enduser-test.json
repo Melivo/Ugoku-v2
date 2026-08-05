@@ -1,0 +1,176 @@
+{
+  "id": "plan-20260602-mcp-enduser-test",
+  "title": "MCP Enduser Test",
+  "status": "active",
+  "created": "2026-06-02",
+  "owner": "user-tests-assistant-instructs",
+  "complexity": "medium",
+  "goal": "Manual end-user validation of Pros MCP installation and setup flow without changing global MCP/client configuration unless explicitly approved.",
+  "scope": {
+    "included": [
+      "fresh or selected case folder setup",
+      "pros init MCP-relevant artifacts",
+      "Serena/OpenCode project activation",
+      "Pros runtime manifest MCP target review",
+      "Pros-MCP binary availability",
+      "werkzeuge-mcp-einrichtung workflow consent gates",
+      "optional SSOT/sync only after explicit approval"
+    ],
+    "excluded": [
+      "general pros E2E testing",
+      "provider OAuth setup with pasted secrets",
+      "automatic global MCP/client configuration writes",
+      "AnythingLLM writes unless explicitly selected and approved"
+    ]
+  },
+  "constraints": [
+    "Never request or record secrets, tokens, OAuth codes, passwords, API keys, or Credential Manager values.",
+    "Do not modify servers.yaml or client configs without explicit user approval.",
+    "Validate Serena workspace binding through .serena/project.yml and logs before changing OpenCode config.",
+    "Use pros-runtime-manifest.md as the MCP target-state reference.",
+    "The user executes tests manually; the assistant gives one step at a time."
+  ],
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Define test conditions and target clients",
+      "agent": "pm",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [],
+      "acceptanceCriteria": [
+        "case folder strategy selected",
+        "remote-release or local-dev path selected",
+        "OpenCode and AnythingLLM targets selected or skipped"
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Prepare fresh or selected case folder",
+      "agent": "qa",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [1],
+      "acceptanceCriteria": [
+        "case folder exists outside the source repository",
+        "test path is documented"
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Run pros init and inspect MCP-relevant artifacts",
+      "agent": "qa",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [2],
+      "acceptanceCriteria": [
+        ".serena/project.yml exists",
+        "pros-runtime-manifest.md exists",
+        "local opencode.json was not created by default",
+        "runtime source is known"
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Review runtime manifest and MCP workflow",
+      "agent": "qa",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [3],
+      "acceptanceCriteria": [
+        "validated targets are identified",
+        "candidate/rejected/manual-bridge targets are not installed",
+        "consent gates are present"
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Verify Serena and OpenCode workspace binding",
+      "agent": "qa",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [3],
+      "acceptanceCriteria": [
+        "OpenCode MCP status checked when available",
+        "latest Serena log activates the case folder",
+        "fallback to user profile is documented if observed"
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Check Pros-MCP binaries and integration readiness",
+      "agent": "qa",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [4],
+      "acceptanceCriteria": [
+        "pros integrations preflight/status are secret-free",
+        "pros-mcp-* binaries are on PATH or missing state is documented"
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Run werkzeuge-mcp-einrichtung to the approval gate",
+      "agent": "qa",
+      "priority": "P1",
+      "status": "TODO",
+      "dependencies": [4, 5, 6],
+      "acceptanceCriteria": [
+        "workflow reads the manifest",
+        "workflow checks .serena/project.yml before global config fixes",
+        "workflow stops before global writes"
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Prepare SSOT plan without writing it",
+      "agent": "qa",
+      "priority": "P1",
+      "status": "TODO",
+      "dependencies": [7],
+      "acceptanceCriteria": [
+        "planned entries are workspace-bound",
+        "no secrets appear in args, env, YAML, or client snippets",
+        "user approval remains pending"
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Optionally sync after explicit approval",
+      "agent": "qa",
+      "priority": "P1",
+      "status": "TODO",
+      "dependencies": [8],
+      "acceptanceCriteria": [
+        "servers.yaml changes are approved before writing",
+        "client sync is verified",
+        "each MCP target has a documented result state"
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Document results and blockers",
+      "agent": "pm",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [1, 2, 3, 4, 5, 6, 7, 8, 9],
+      "acceptanceCriteria": [
+        "test path, runtime source, client targets, logs, binary status, and blockers are documented",
+        "next retry step is clear"
+      ]
+    }
+  ],
+  "doneWhen": [
+    "case folder and runtime source are documented",
+    ".serena/project.yml and pros-runtime-manifest.md are present",
+    "Serena/OpenCode activates the case folder or failure is logged",
+    "pros integrations status/preflight is secret-free",
+    "Pros-MCP binary status is known",
+    "workflow consent gates are validated",
+    "no global MCP/client config was changed without approval"
+  ],
+  "artifacts": {
+    "tracker": "docs/plans/work/015-mcp-enduser-test.md",
+    "machinePlan": ".agents/results/plan-20260602-mcp-enduser-test.json"
+  }
+}

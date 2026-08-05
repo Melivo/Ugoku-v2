@@ -1,0 +1,111 @@
+{
+  "sessionId": "20260629-085840",
+  "workflow": "ultrawork",
+  "title": "QNAP MCP Assistant per-user auth integration",
+  "language": "de",
+  "status": "approved-for-implementation",
+  "sourcePlan": ".agents/results/plan-20260629-qnap-mcp-assistant-user-auth.json",
+  "sourceMemory": "plans/qnap-mcp-assistant-user-auth-20260629-final",
+  "targetEndpoint": "https://nasproselect.myqnapcloud.com/",
+  "confirmedCompletionCriteria": ["C1", "C2", "C3", "C4", "C5", "C6"],
+  "scope": {
+    "defaultDecision": "Use the official QNAP MCP Assistant as the preferred/default integration path when its client launch, per-user auth, and safe tool exposure requirements are met; keep the existing first-party pros-mcp-qnap-files bridge as documented fallback for bounded case-file workflows.",
+    "thinWrapperDecision": "Do not reimplement QNAP File Station. Add only Pros-side client-config metadata, policy documentation, and tests. Use a thin wrapper/filter only if official Assistant tooling cannot block silent upload/overwrite/delete or client compatibility fails.",
+    "nasBoundaryDecision": "QNAP user permissions are the NAS boundary. Do not bind official Assistant usage to local cwd, workspace, or fallordner."
+  },
+  "implementationTasks": [
+    {
+      "id": "T1",
+      "phase": "IMPL",
+      "owner": "backend",
+      "summary": "Extend MCP client configuration to include a QNAP MCP Assistant include target for OpenCode and AnythingLLM.",
+      "acceptance": [
+        "Generated entries contain command/args only and no credentials or tokens.",
+        "OpenCode and AnythingLLM QNAP entries do not set cwd or fallordner-like path allowlists.",
+        "Managed state and status checks understand qnap-mcp-assistant."
+      ]
+    },
+    {
+      "id": "T2",
+      "phase": "IMPL",
+      "owner": "backend",
+      "summary": "Encode tool-surface classification and safety policy for official Assistant default versus Pros fallback.",
+      "acceptance": [
+        "Repo artifact classifies read, transfer, write, destructive, and admin/system capabilities.",
+        "Silent delete/overwrite/upload is rejected by policy; preview/approval or blocking is required.",
+        "No admin/system NAS functions are documented as default user workflow."
+      ]
+    },
+    {
+      "id": "T3",
+      "phase": "IMPL",
+      "owner": "docs",
+      "summary": "Update runtime manifest, setup workflow, CLI docs, tracker, and reference docs.",
+      "acceptance": [
+        "Docs mention nasproselect.myqnapcloud.com, per-user auth, no-secret config, QNAP user permissions, no cwd/fallordner binding, and preview/approval.",
+        "Runtime manifest marks official QNAP MCP Assistant as preferred/default with fallback conditions."
+      ]
+    },
+    {
+      "id": "T4",
+      "phase": "VERIFY",
+      "owner": "qa",
+      "summary": "Add and run tests for client config, QNAP MCP surface, no-secret policy, and live-smoke blocked handling.",
+      "acceptance": [
+        "npm run typecheck, npm run lint, npm test pass or failures are documented with root cause.",
+        "Secret scan over changed files finds no QNAP password, token, or session material.",
+        "Live smoke is PASS with redacted user context or BLOCKED due to missing credentials; no simulation."
+      ]
+    }
+  ],
+  "assumptions": [
+    "No live internal QNAP credentials are available in this chat/session unless explicitly supplied out-of-band by the user.",
+    "The official QNAP MCP Assistant may not be locally installed; implementation must document/install-configure without storing secrets.",
+    "Existing first-party pros-mcp-qnap-files remains a safe fallback and should not be loosened for NAS-wide official Assistant behavior."
+  ],
+  "alternativesConsidered": [
+    {
+      "option": "Official QNAP MCP Assistant as direct default",
+      "decision": "Preferred default",
+      "reason": "Officially maintained surface, lower custom code burden, supports per-user Assistant-style workflows if auth is local/per-user and config is secret-free."
+    },
+    {
+      "option": "First-party Pros File Station bridge as default",
+      "decision": "Fallback only",
+      "reason": "Already safer and preview-only, but intentionally bounded by profiles/share allowlists and unsuitable for NAS-wide per-user chat workflows."
+    },
+    {
+      "option": "Thin Pros wrapper/filter around official Assistant",
+      "decision": "Conditional fallback",
+      "reason": "Use only if official Assistant exposes silent destructive tools or client incompatibilities; avoids speculative wrapper code."
+    }
+  ],
+  "reviews": {
+    "completeness": {
+      "status": "pass",
+      "mapping": {
+        "C1": ["T2", "T3", "T4"],
+        "C2": ["T1", "T3", "T4"],
+        "C3": ["T1", "T4"],
+        "C4": ["T2", "T4"],
+        "C5": ["T3", "T4"],
+        "C6": ["T4"]
+      }
+    },
+    "metaReview": {
+      "status": "pass",
+      "notes": "Reviews include source plan, user completion criteria, existing qnap-files fallback, MCP client config, runtime manifest, docs, tests, secret scan, and live-smoke blocked path."
+    },
+    "overEngineeringReview": {
+      "status": "pass",
+      "notes": "No new QNAP HTTP client or full wrapper is planned unless official Assistant safety constraints fail. Minimal config/docs/tests changes are preferred."
+    }
+  },
+  "planGate": {
+    "documented": true,
+    "assumptionsListed": true,
+    "alternativesConsidered": true,
+    "overEngineeringReviewDone": true,
+    "userConfirmation": "accepted from Ralph Phase 0 per user instruction"
+  }
+}

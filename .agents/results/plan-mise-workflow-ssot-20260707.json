@@ -1,0 +1,163 @@
+{
+  "sessionId": "mise-workflow-ssot-20260707",
+  "workflow": "plan",
+  "status": "Active",
+  "created": "2026-07-07",
+  "language": "de",
+  "title": "Mise Workflow SSOT Umsetzung",
+  "goal": "Design 008 umsetzen: mise wird Toolchain- und Task-SSOT, Gitea CI und Release nutzen mise-Tasks, Cache-Hardening wird ergaenzt und der bestehende pros-v* Tag-Release bleibt erhalten.",
+  "sourceDesign": "docs/plans/designs/008-mise-workflow-ssot.md",
+  "humanTracker": "docs/plans/work/025-mise-workflow-ssot.md",
+  "complexity": {
+    "level": "Complex",
+    "rationale": "Mindestens .mise.toml, CI-Workflow, Release-Workflow und Dokumentation sind betroffen; bestehende Release-Automation und Cache-Semantik muessen erhalten bzw. sauber abgegrenzt werden."
+  },
+  "apiContracts": {
+    "required": false,
+    "rationale": "Keine neue Frontend-/Backend-, Service- oder externe API-Grenze. Bestehende Gitea-Release-API-Nutzung bleibt workflow-intern."
+  },
+  "requirements": {
+    "targetUsers": [
+      "Entwickler im Repo",
+      "CI/Release Maintainer"
+    ],
+    "mustHave": [
+      "mise Tasks",
+      "CI Migration",
+      "Release Migration",
+      "Caching",
+      "Dokumentation"
+    ],
+    "niceToHave": [
+      "npm Fallback Doku",
+      "CI Speed Messung"
+    ],
+    "constraints": [
+      "Node 22 bleibt Toolchain-Contract.",
+      "npm wird in v1 nicht separat gepinnt, sofern keine explizite Abweichung entschieden wird.",
+      "npm ci bleibt deterministisch.",
+      "Keine Secrets in .mise.toml.",
+      "pros-v* Tag-Release bleibt erhalten.",
+      "Kein node_modules Cache als Default."
+    ]
+  },
+  "tasks": [
+    {
+      "id": 1,
+      "title": ".mise.toml an Design angleichen und Tasks definieren",
+      "agent": "backend",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [],
+      "acceptanceCriteria": [
+        "Node 22 ist der Toolchain-Contract.",
+        "Das vorhandene npm-Pinning ist entfernt oder als bewusste Design-Abweichung dokumentiert.",
+        "Tasks lint, typecheck, test, coverage, build, runtime-validate, release-dry-run, audit, bom-check und release-check existieren.",
+        "Lokale Tasks bleiben Windows-kompatibel und delegieren an npm/node."
+      ]
+    },
+    {
+      "id": 2,
+      "title": "CI-Workflow auf mise Tasks migrieren",
+      "agent": "backend",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [1],
+      "acceptanceCriteria": [
+        ".gitea/workflows/ci.yaml nutzt mise run fuer Checks, Build und Validation.",
+        "npm ci bleibt als deterministischer Installationsschritt erhalten.",
+        "Direkte Qualitaetsbefehle via npm run oder npm test sind durch mise run ersetzt, wo passende Tasks existieren."
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Release-Workflow Gates auf mise Tasks migrieren",
+      "agent": "backend",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [1],
+      "acceptanceCriteria": [
+        ".gitea/workflows/release.yaml behaelt den pros-v* Tag-Trigger.",
+        "Preflight, Build und Validation nutzen mise Tasks.",
+        "Secret-, Upload- und Gitea-Release-Logik bleibt im Workflow."
+      ]
+    },
+    {
+      "id": 4,
+      "title": "CI Cache-Hardening ergaenzen",
+      "agent": "backend",
+      "priority": "P1",
+      "status": "TODO",
+      "dependencies": [2, 3],
+      "acceptanceCriteria": [
+        "mise-Tool-Cache ist workflow-seitig aktiviert oder eine Runner-Inkompatibilitaet ist dokumentiert.",
+        "npm-Paketcache ist ueber package-lock.json gekeyed, sofern der Runner Cache unterstuetzt.",
+        "Cache-Ausfall bleibt nicht-funktional.",
+        "node_modules wird nicht als Default gecached."
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Dokumentation aktualisieren",
+      "agent": "qa",
+      "priority": "P1",
+      "status": "TODO",
+      "dependencies": [1, 2, 3],
+      "acceptanceCriteria": [
+        "Developer-Kommandos nennen mise als Standard.",
+        "npm bleibt als Implementierungsschicht und Fallback erklaert.",
+        "Die Grenze zwischen mise-Preflight und tag-basiertem Release-Publishing ist dokumentiert."
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Verifikation und Regression Review",
+      "agent": "qa",
+      "priority": "P0",
+      "status": "TODO",
+      "dependencies": [1, 2, 3, 4, 5],
+      "acceptanceCriteria": [
+        "mise tasks --all wurde geprueft.",
+        "mise run lint wurde geprueft.",
+        "mise run typecheck wurde geprueft.",
+        "mise run test wurde geprueft.",
+        "mise run build wurde geprueft.",
+        "mise run runtime-validate wurde geprueft.",
+        "mise run release-check wurde lokal ohne Tag- oder Secret-Kontext geprueft.",
+        "Workflow-YAML wurde soweit lokal moeglich validiert.",
+        "Kalte Cache-Semantik wurde beruecksichtigt."
+      ]
+    }
+  ],
+  "dependencyGraph": [
+    "1 -> 2",
+    "1 -> 3",
+    "2,3 -> 4",
+    "1,2,3 -> 5",
+    "1,2,3,4,5 -> 6"
+  ],
+  "doneWhen": [
+    "mise run release-check laeuft lokal ohne Tag- oder Secret-Kontext.",
+    "Gitea CI und Release nutzen mise fuer wiederverwendbare Gates.",
+    "Der bestehende pros-v* Tag-Release bleibt erhalten.",
+    "Keine Secrets stehen in .mise.toml.",
+    "Dokumentation ist synchron."
+  ],
+  "decisionLog": [
+    {
+      "date": "2026-07-07",
+      "decision": "Complex-Plan ohne API Contracts erstellen.",
+      "rationale": "Mehrere Workflow- und Dokumentationsdateien sind betroffen, aber es entsteht keine neue API-Grenze."
+    },
+    {
+      "date": "2026-07-07",
+      "decision": "mise wird Workflow-SSOT, npm bleibt Implementierungsschicht.",
+      "rationale": "So bleiben lokale Nutzung und CI/Release-Gates konsistent, ohne bestehende npm-Skripte zu duplizieren."
+    },
+    {
+      "date": "2026-07-07",
+      "decision": "Push-to-Release bleibt out of scope.",
+      "rationale": "Release-Policy, Tagging, Secrets und Uploads gehoeren in den Release-Workflow, nicht in mise."
+    }
+  ]
+}

@@ -1,0 +1,139 @@
+# oh-my-agent — project config
+# OpenCode-first routing generated from the local OpenCode model catalog.
+
+language: de
+date_format: ISO
+timezone: Germany/Berlin
+auto_update_cli: true
+model_preset: opencode-local
+
+vendors:
+  opencode: {}
+
+default_cli: opencode
+agent_cli_mapping:
+  orchestrator: opencode
+  architecture: opencode
+  qa: opencode
+  pm: opencode
+  backend: opencode
+  frontend: opencode
+  mobile: opencode
+  db: opencode
+  debug: opencode
+  docs: opencode
+  tf-infra: opencode
+  explore: opencode
+
+models:
+  opencode-openai/gpt-5.5:
+    cli: opencode
+    cli_model: openai/gpt-5.5
+    auth_hint: "OpenCode local catalog — validate with: opencode models openai"
+    supports:
+      effort: null
+      apply_patch: false
+      task_budget: false
+      prompt_cache: false
+      computer_use: false
+      native_dispatch_from: [opencode]
+      api_only: false
+  opencode-openai/gpt-5.6-sol:
+    cli: opencode
+    cli_model: openai/gpt-5.6-sol
+    auth_hint: "OpenCode local catalog — validate with: opencode models openai"
+    supports:
+      effort: null
+      apply_patch: false
+      task_budget: false
+      prompt_cache: false
+      computer_use: false
+      native_dispatch_from: [opencode]
+      api_only: false
+  opencode-openai/gpt-5.6-sol-pro:
+    cli: opencode
+    cli_model: openai/gpt-5.6-sol-pro
+    auth_hint: "OpenCode local catalog — validate with: opencode models openai"
+    supports:
+      effort: null
+      apply_patch: false
+      task_budget: false
+      prompt_cache: false
+      computer_use: false
+      native_dispatch_from: [opencode]
+      api_only: false
+  opencode-openai/gpt-5.6-terra:
+    cli: opencode
+    cli_model: openai/gpt-5.6-terra
+    auth_hint: "OpenCode local catalog — validate with: opencode models openai"
+    supports:
+      effort: null
+      apply_patch: false
+      task_budget: false
+      prompt_cache: false
+      computer_use: false
+      native_dispatch_from: [opencode]
+      api_only: false
+  opencode-openai/gpt-5.6-luna:
+    cli: opencode
+    cli_model: openai/gpt-5.6-luna
+    auth_hint: "OpenCode local catalog — validate with: opencode models openai"
+    supports:
+      effort: null
+      apply_patch: false
+      task_budget: false
+      prompt_cache: false
+      computer_use: false
+      native_dispatch_from: [opencode]
+      api_only: false
+  opencode-kimi-for-coding/k2p7:
+    cli: opencode
+    cli_model: kimi-for-coding/k2p7
+    auth_hint: "OpenCode local catalog — validate with: opencode models kimi-for-coding"
+    supports:
+      effort: null
+      apply_patch: false
+      task_budget: false
+      prompt_cache: false
+      computer_use: false
+      native_dispatch_from: [opencode]
+      api_only: false
+  opencode-zai-coding-plan/glm-5.2:
+    cli: opencode
+    cli_model: zai-coding-plan/glm-5.2
+    auth_hint: "OpenCode local catalog — validate with: opencode models zai-coding-plan"
+    supports:
+      effort: null
+      apply_patch: false
+      task_budget: false
+      prompt_cache: false
+      computer_use: false
+      native_dispatch_from: [opencode]
+      api_only: false
+
+custom_presets:
+  opencode-local:
+    description: "OpenCode local catalog routing: GPT-5.6 for OpenAI roles; Z.ai PM and Kimi exploration unchanged."
+    agent_defaults:
+      orchestrator: { model: opencode-openai/gpt-5.6-terra, effort: medium }
+      architecture: { model: opencode-openai/gpt-5.6-sol-pro, effort: high }
+      qa: { model: opencode-openai/gpt-5.6-sol-pro, effort: high }
+      pm: { model: opencode-zai-coding-plan/glm-5.2, effort: high }
+      backend: { model: opencode-openai/gpt-5.6-sol, effort: high }
+      frontend: { model: opencode-openai/gpt-5.6-sol, effort: medium }
+      mobile: { model: opencode-openai/gpt-5.6-terra, effort: high }
+      db: { model: opencode-openai/gpt-5.6-sol, effort: high }
+      debug: { model: opencode-openai/gpt-5.6-sol, effort: high }
+      docs: { model: opencode-openai/gpt-5.5, effort: low }
+      tf-infra: { model: opencode-openai/gpt-5.6-sol, effort: high }
+      explore: { model: opencode-kimi-for-coding/k2p7 }
+
+# Added by oma update — new config keys (template defaults; edit freely)
+translation_voice: balanced
+telemetry: false
+docs:
+  auto_verify: false
+  check_urls: true
+  exclude:
+    - benchmarks/**
+    - web/i18n/**

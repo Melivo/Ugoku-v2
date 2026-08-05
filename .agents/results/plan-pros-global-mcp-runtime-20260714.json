@@ -1,0 +1,160 @@
+{
+  "sessionId": "plan-pros-global-mcp-runtime-20260714",
+  "title": "Globale Pros MCP Runtime-Konfiguration",
+  "status": "approved",
+  "created": "2026-07-14",
+  "complexity": "complex",
+  "goal": "Pros richtet MCPs fuer OpenCode und AnythingLLM global ein, ohne CWD-Dateien oder persistierte Fallordnerpfade.",
+  "scope": {
+    "included": [
+      "Ausgelieferte Pros-Runtime unter Windows",
+      "OpenCode und AnythingLLM",
+      "Serena sowie lokale Office-MCPs",
+      "Globale Synchronisierung, Tests und Runtime-Dokumentation"
+    ],
+    "excluded": [
+      "Entwicklerkonfiguration in .serena/project.yml",
+      "Lesen oder Erzeugen von CWD-Serena-Dateien durch Pros",
+      "Persistierte Fallordnerpfade in Client-Konfigurationen"
+    ]
+  },
+  "contract": ".agents/results/api-contracts/pros-global-mcp-runtime-20260714.md",
+  "decisions": [
+    {
+      "subject": "plan.api-contract",
+      "decision": "Globale Pros MCP-Konfiguration mit validiertem Workspace-Mechanismus verwenden.",
+      "rationale": "Verhindert CWD-Dateien, hartcodierte Fallordnerpfade und unzuverlaessige Shell-Variablen."
+    },
+    {
+      "subject": "workspace-substitution",
+      "decision": "Kein literal $PWD in Client-Konfigurationen verwenden.",
+      "rationale": "MCP-Clients starten Prozesse nicht zwingend ueber eine Shell und garantieren kein Fallordner-CWD."
+    }
+  ],
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Serena globalen Projektmodus validieren",
+      "agent": "debug",
+      "priority": "P0",
+      "dependencies": [],
+      "acceptanceCriteria": [
+        "--project-Unterstuetzung ist per Hilfe und Startprobe belegt.",
+        "Ohne Unterstuetzung erfolgt kein Fallback auf --project-from-cwd."
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Client-faehigen Workspace-Mechanismus validieren",
+      "agent": "debug",
+      "priority": "P0",
+      "dependencies": [],
+      "acceptanceCriteria": [
+        "OpenCode und AnythingLLM werden real getestet.",
+        "Kein globaler Eintrag speichert einen Fallordnerpfad oder $PWD."
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Globalen Configure-CLI-Vertrag implementieren",
+      "agent": "backend",
+      "priority": "P0",
+      "dependencies": [1, 2],
+      "acceptanceCriteria": [
+        "Globale Konfiguration ist der Standard.",
+        "Statuscodes und Fehlertexte entsprechen dem Vertrag."
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Lokale Office-MCPs als verwaltete Includes integrieren",
+      "agent": "backend",
+      "priority": "P0",
+      "dependencies": [2, 3],
+      "acceptanceCriteria": [
+        "DOCX-, Excel- und PowerPoint-MCPs sind konfigurierbar.",
+        "Ohne validierten Workspace verweigern sie Dateizugriffe."
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Serena als globalen verwalteten Eintrag integrieren",
+      "agent": "backend",
+      "priority": "P0",
+      "dependencies": [1, 3],
+      "acceptanceCriteria": [
+        "Serena verwendet nur den zentralen Projektpfad.",
+        "CWD-Projektdateien werden weder gelesen noch erzeugt."
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Globale SSOT und Client-Synchronisierung implementieren",
+      "agent": "backend",
+      "priority": "P0",
+      "dependencies": [3],
+      "acceptanceCriteria": [
+        "Beide Clients werden idempotent aus einer gemeinsamen Quelle synchronisiert.",
+        "Fremde Client-Eintraege bleiben erhalten."
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Regressionstests fuer globale Konfiguration ergaenzen",
+      "agent": "qa",
+      "priority": "P0",
+      "dependencies": [3, 4, 5, 6],
+      "acceptanceCriteria": [
+        "Tests decken CWD-Dateien, Secrets, Fallordnerpfade, $PWD und Idempotenz ab."
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Windows-Smoke-Tests in neuen Fallordnern ausfuehren",
+      "agent": "qa",
+      "priority": "P1",
+      "dependencies": [1, 2, 3, 4, 5, 6, 7],
+      "acceptanceCriteria": [
+        "OpenCode und AnythingLLM bestehen globale Setup- und nicht-mutative Tooltests."
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Runtime-Hilfe und Troubleshooting aktualisieren",
+      "agent": "docs",
+      "priority": "P1",
+      "dependencies": [1, 2, 3, 4, 5, 6, 7, 8],
+      "acceptanceCriteria": [
+        "Dokumentation beschreibt den implementierten globalen Ablauf fuer beide Clients."
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Migrations- und Release-Szenarien pruefen",
+      "agent": "qa",
+      "priority": "P2",
+      "dependencies": [7, 8, 9],
+      "acceptanceCriteria": [
+        "Bestehende Entwickler-CWD-Dateien bleiben unberuehrt und werden ignoriert."
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Ausgelieferten MCP-Workflow und Ressourcen synchronisieren",
+      "agent": "docs",
+      "priority": "P1",
+      "dependencies": [1, 2, 3, 4, 5, 6, 7, 8],
+      "acceptanceCriteria": [
+        "Workflow und alle referenzierten Ressourcen sind aufloesbar und aktuell.",
+        "Kein Beispiel verlangt CWD-YAML, hartcodierte Fallordnerpfade oder $PWD."
+      ]
+    }
+  ],
+  "doneWhen": [
+    "Pros erstellt oder liest keine CWD-Serena-Dateien fuer die Runtime.",
+    "Client-Konfigurationen enthalten keine Secrets, Fallordnerpfade oder $PWD.",
+    "Serena und Office-MCPs sind nur ueber validierte globale bzw. Workspace-Mechanismen konfiguriert.",
+    "OpenCode und AnythingLLM bestehen die Windows-Smoke-Tests.",
+    "Der ausgelieferte Workflow und jede referenzierte Ressource sind aktuell und konsistent."
+  ]
+}

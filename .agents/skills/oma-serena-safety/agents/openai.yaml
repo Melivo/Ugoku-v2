@@ -1,0 +1,4 @@
+interface:
+  display_name: "Serena Safety Playbook"
+  short_description: "Serena safety, timeout, and LSP alignment"
+  default_prompt: "Use $oma-serena-safety to install Serena safety guidance, enforce 10-second timeouts, and align project language servers with meaningful source files."
