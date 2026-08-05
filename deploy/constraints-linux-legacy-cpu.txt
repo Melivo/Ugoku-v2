@@ -1,0 +1,2 @@
+# NumPy 2.2+ wheels require x86-64-v2, which this server's Core 2 CPU lacks.
+numpy==2.1.3

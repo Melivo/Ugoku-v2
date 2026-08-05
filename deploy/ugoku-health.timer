@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the Ugoku external health check every 110 seconds
+
+[Timer]
+Unit=ugoku-health.service
+OnBootSec=110s
+OnUnitActiveSec=110s
+AccuracySec=2s
+
+[Install]
+WantedBy=timers.target

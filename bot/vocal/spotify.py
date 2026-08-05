@@ -1,4 +1,5 @@
 import asyncio
+from contextlib import suppress
 import logging
 import os
 import re
@@ -45,37 +46,58 @@ class SpotifySessions:
         self.lp: Optional[Librespot] = None
         self.sp: Optional[spotipy.Spotify] = None
         self.loop: Optional[asyncio.AbstractEventLoop] = None
+        self.listener_task: Optional[asyncio.Task] = None
 
     async def init_spotify(self) -> None:
         try:
-            self.loop = asyncio.get_running_loop()
+            # Exactly one startup attempt. The enclosing Boot -> READY timeout
+            # owns the deadline; no retry/backoff loop is allowed here.
+            await self._init_spotify_once()
+        except BaseException:
+            # Propagating the failure lets the TaskGroup roll back and systemd
+            # apply Restart=/RestartSec= instead of leaving the unit activating.
+            await self.close()
+            raise
 
-            # Librespot
-            if SPOTIFY_ENABLED:
-                self.lp = Librespot()
-                await self.lp.create_session()
-                asyncio.create_task(self.lp.listen_to_session())
+    async def _init_spotify_once(self) -> None:
+        self.loop = asyncio.get_running_loop()
 
-            # Spotify API
-            if SPOTIFY_API_ENABLED:
-                self.sp = spotipy.Spotify(
-                    auth_manager=SpotifyOAuth(
-                        client_id=self.config.client_id,
-                        client_secret=self.config.client_secret,
-                        redirect_uri=self.config.redirect_uri,
-                        scope="playlist-read-private playlist-read-collaborative",
-                        cache_path=".spotify_cache",
-                    )
+        # Librespot
+        if SPOTIFY_ENABLED:
+            self.lp = Librespot()
+            await self.lp.create_session()
+            self.listener_task = asyncio.create_task(self.lp.listen_to_session())
+
+        # Spotify API
+        if SPOTIFY_API_ENABLED:
+            self.sp = spotipy.Spotify(
+                auth_manager=SpotifyOAuth(
+                    client_id=self.config.client_id,
+                    client_secret=self.config.client_secret,
+                    redirect_uri=self.config.redirect_uri,
+                    scope="playlist-read-private playlist-read-collaborative",
+                    cache_path=".spotify_cache",
                 )
-
-            logging.info("Spotify sessions initialized successfully")
-
-        except Exception as e:
-            logging.error(
-                f"Error initializing Spotify sessions: {repr(e)}, retrying in 10 seconds"
             )
-            await asyncio.sleep(10)
-            await self.init_spotify()
+
+        logging.info("Spotify sessions initialized successfully")
+
+    async def close(self) -> None:
+        listener_task = self.listener_task
+        self.listener_task = None
+        if listener_task and not listener_task.done():
+            listener_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await listener_task
+
+        librespot = self.lp
+        self.lp = None
+        self.sp = None
+        if librespot:
+            try:
+                await librespot.close_session()
+            finally:
+                librespot.executor.shutdown(wait=False, cancel_futures=True)
 
 
 def get_album_name(name) -> str:
@@ -115,30 +137,44 @@ class Librespot:
 
     async def create_session(self, path: Path = Path("./credentials.json")) -> None:
         """Wait for credentials and generate a json file if needed."""
+        zeroconf_session = None
         if not path.exists():
             logging.warning(
                 "Please log in to Librespot from Spotify's official client! "
                 "Any command using Spotify features will not work."
             )
-            session = await self.loop.run_in_executor(
-                self.executor, ZeroconfServer.Builder().create
-            )
-            while not path.exists():
-                await asyncio.sleep(1)
-            logging.info(
-                "Credentials saved Successfully, closing Zeroconf session. "
-                "You can now close Spotify. ( ^^) _旦~~"
-            )
-            session.close_session()
+            try:
+                pending_session = self.loop.run_in_executor(
+                    self.executor, ZeroconfServer.Builder().create
+                )
+                try:
+                    zeroconf_session = await asyncio.shield(pending_session)
+                except asyncio.CancelledError:
+                    zeroconf_session = await pending_session
+                    raise
+                while not path.exists():
+                    await asyncio.sleep(1)
+                logging.info(
+                    "Credentials saved Successfully, closing Zeroconf session. "
+                    "You can now close Spotify. ( ^^) _旦~~"
+                )
+            finally:
+                if zeroconf_session is not None:
+                    await asyncio.to_thread(zeroconf_session.close_session)
 
         await self.generate_session()
 
     async def generate_session(self) -> None:
         if self.session:
             return
-        self.session = await self.loop.run_in_executor(
+        pending_session = self.loop.run_in_executor(
             self.executor, lambda: Session.Builder().stored_file().create()
         )
+        try:
+            self.session = await asyncio.shield(pending_session)
+        except asyncio.CancelledError:
+            self.session = await pending_session
+            raise
         self.updated = datetime.now()
         logging.info("Librespot session created!")
 

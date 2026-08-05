@@ -1,6 +1,7 @@
 from google.genai.types import SafetySetting, HarmCategory, HarmBlockThreshold
 from pathlib import Path
 import logging
+import os
 import sys
 from dotenv import load_dotenv
 
@@ -11,11 +12,11 @@ load_dotenv()
 # Make sure to specify SPOTIPY_CLIENT_ID and SPOTIPY_CLIENT_SECRET in the .env file.
 # If the Spotify API is disabled, please check ./commands/lyrics.py for adjustments.
 SPOTIFY_API_ENABLED = True
-SPOTIFY_ENABLED = False
+SPOTIFY_ENABLED = True
 DEEZER_ENABLED = False
 DEFAULT_STREAMING_SERVICE = 'spotify/deezer'
-GEMINI_ENABLED = True # Don't forget to whitelist servers for the chatbot via /database commands !
-PINECONE_ENABLED = True
+GEMINI_ENABLED = False # Don't forget to whitelist servers for the chatbot via /database commands !
+PINECONE_ENABLED = False
 ALLOW_CHATBOT_IN_DMS = False # Allow everyone to use the bot in dms.
 
 # IN DEVELOPMENT: Used for compatibility purposes
@@ -44,8 +45,58 @@ TEMP_FOLDER = Path('.') / 'temp'
 PREMIUM_CHANNEL_ID = None # Upload files too big to a channel in a boosted server instead
 DB_PATH = Path("config.sqlite")
 
+# Production health monitoring. HEALTH_MONITOR_INTERVAL is intentionally the
+# single cadence for both the observable state and systemd watchdog heartbeat.
+HEALTH_MONITOR_ENABLED: bool = True
+HEALTH_MONITOR_INTERVAL: int = 20
+HEALTH_RUN_DIR: Path = Path(os.getenv("UGOKU_RUN_DIR") or "/run/ugoku")
+HEALTH_STATE_FILE: Path = Path(
+    os.getenv("UGOKU_HEALTH_STATE_FILE") or str(HEALTH_RUN_DIR / "health.json")
+)
+HEALTH_STATE_MODE: int = 0o644
+HEALTH_FAIL_COUNT_FILE: Path = HEALTH_RUN_DIR / "fail.count"
+HEALTH_INCIDENT_FILE: Path = HEALTH_RUN_DIR / "incident.json"
+HEALTH_ALERT_OUTBOX_FILE: Path = HEALTH_RUN_DIR / "alert-outbox.json"
+HEALTH_GATEWAY_LATENCY_THRESHOLD_MS: int = 10_000
+HEALTH_LOOP_LAG_THRESHOLD_MS: int = 3_000
+HEALTH_STALE_THRESHOLD: int = 180
+HEALTH_READY_GRACE: int = 60
+HEALTH_FAILURE_THRESHOLD: int = 2
+HEALTH_SHUTDOWN_BUDGET: int = 20
+HEALTH_FORCE_CLEANUP_BUDGET: int = 8
+HEALTH_AUDIO_PROBE_COOLDOWN: int = 60
+HEALTH_AUDIO_PROBE_TIMEOUT: float = 15.0
+HEALTH_AUDIO_PROBE_BYTES: int = 8192
+HEALTH_AUDIO_PROBE_TRACK_ID: str | None = os.getenv(
+    "UGOKU_HEALTH_AUDIO_PROBE_TRACK_ID"
+)
+HEALTH_ALERT_TIMEOUT: float = 5.0
+
+# RESOURCE_BLOCKED predicate thresholds.
+HEALTH_FFMPEG_ORPHAN_THRESHOLD: int = 0
+HEALTH_VOICE_CONNECT_STUCK_S: int = 30
+HEALTH_LIBRESPOT_STALE_S: int = 60
+
+# End-to-end recovery SLA and the upper bound assigned to each operation.
+HEALTH_SLA_TOTAL_S: int = 300
+HEALTH_SLA_DETECT_S: int = 225
+HEALTH_SLA_RESTART_TRIGGER_S: int = 5
+HEALTH_SLA_STOP_S: int = 25
+HEALTH_SLA_RESTART_SEC_S: int = 5
+HEALTH_SLA_BOOT_READY_S: int = 30
+HEALTH_SLA_RECOVERY_ALERT_S: int = 5
+
+# Alerting is external to the bot loop. This value is consumed by the external
+# healthcheck only; ADMIN_OWNER_IDS protects the in-bot /health command.
+ADMIN_ALERT_WEBHOOK: str | None = os.getenv("UGOKU_ALERT_WEBHOOK")
+ADMIN_OWNER_IDS: list[int] = [
+    int(value.strip())
+    for value in os.getenv("UGOKU_ADMIN_OWNER_IDS", "").split(",")
+    if value.strip()
+]
+
 # Cache control & preloading
-AGRESSIVE_CACHING = True # Download Spotify streams on disk before and when playing. Can be useful if Spotify often closes the connection with Librespot.
+AGRESSIVE_CACHING = False # Avoid persistent reader workers when Librespot connections are unstable.
 PRELOAD_TRACKS = 1 # Number of tracks to preload
 CACHE_SIZE = 100  # Cache size limit (in number of files)
 CACHE_EXPIRY = 2592000  # Cache expiry time (in seconds). Default is one month

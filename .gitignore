@@ -13,3 +13,6 @@ cache.sqlite
 web
 config.sqlite
 ytdlp_cache.sqlite
+
+# oma docs generated artifacts
+docs/generated/

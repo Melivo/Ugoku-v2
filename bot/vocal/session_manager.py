@@ -39,6 +39,7 @@ class SessionManager:
             return
 
         channel = user_voice.channel
+        connect_task = None
 
         if not ctx.voice_client or not ctx.voice_client.is_connected():
             connect_task = asyncio.create_task(channel.connect())

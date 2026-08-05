@@ -1,0 +1,1 @@
+leadt3ch ALL=(root) NOPASSWD: /bin/systemctl --no-block restart ugoku.service

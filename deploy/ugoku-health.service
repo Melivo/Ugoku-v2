@@ -1,0 +1,13 @@
+[Unit]
+Description=Ugoku external health check
+
+[Service]
+Type=oneshot
+User=leadt3ch
+WorkingDirectory=/home/leadt3ch/ugoku
+ExecStart=/home/leadt3ch/.local/bin/uv run --python /home/leadt3ch/ugoku/venv/bin/python scripts/healthcheck.py
+# NoNewPrivileges cannot be enabled here: this narrowly invokes the sudoers-
+# restricted systemctl restart command after a failed probe.
+ProtectSystem=full
+PrivateTmp=true
+CapabilityBoundingSet=

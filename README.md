@@ -63,6 +63,14 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+On the legacy Linux production host, install with its CPU compatibility
+constraint and verify the resolved NumPy version before starting the units:
+
+```bash
+pip install -r requirements.txt -c deploy/constraints-linux-legacy-cpu.txt
+python -c "import numpy; assert numpy.__version__ == '2.1.3'"
+```
+
 - [Create a bot and add it to a Discord server](https://guide.pycord.dev/getting-started/creating-your-first-bot), or add it to your apps. You can follow the first 3 sections of the guide.
 - Create an .env file in the root directory.
 - Set the environment variables for the services you want to use, based on the template.

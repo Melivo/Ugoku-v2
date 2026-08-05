@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import itertools
 import logging
 import random
-from time import perf_counter, time
+from time import monotonic, perf_counter, time
 from typing import Optional, List, Union
 
 import discord
@@ -23,6 +23,7 @@ from config import (
     DEEZER_ENABLED,
     SPOTIFY_API_ENABLED,
     DEFAULT_AUDIO_BITRATE,
+    HEALTH_FORCE_CLEANUP_BUDGET,
     PRELOAD_TRACKS,
 )
 from deezer_decryption.chunked_input_stream import DeezerChunkedInputStream
@@ -268,7 +269,7 @@ class ServerSession:
         if self.voice_client.is_playing():
             logging.error(f"Audio is already playing in {self.voice_channel_id}")
             return
-        self.clean_ffmpeg_sources()
+        await self.clean_ffmpeg_sources()
 
         # Play !
         source = discord.FFmpegOpusAudio(
@@ -500,7 +501,10 @@ class ServerSession:
 
         self.stop_event = asyncio.Event()
         self.voice_client.stop()
-        await self.stop_event.wait()  # ... Until its completely stopped
+        try:
+            await asyncio.wait_for(self.stop_event.wait(), timeout=10)
+        except TimeoutError:
+            logging.warning("Timed out waiting for playback to stop in %s", self.guild_id)
         self.last_played_time = datetime.now()
         self.stop_event = None
 
@@ -567,7 +571,7 @@ class ServerSession:
         """Callback function executed after a track finishes playing."""
         self.last_played_time = datetime.now()
 
-        self.clean_ffmpeg_sources()
+        asyncio.run_coroutine_threadsafe(self.clean_ffmpeg_sources(), self.bot.loop)
         if error:
             logging.error(repr(error))
 
@@ -622,20 +626,41 @@ class ServerSession:
 
         await self.start_playing(ctx)
 
-    def clean_ffmpeg_sources(self) -> None:
+    async def clean_ffmpeg_sources(self, deadline: float | None = None) -> None:
+        from bot.health.cleanup import cleanup_with_deadline
+
+        deadline = deadline or (monotonic() + HEALTH_FORCE_CLEANUP_BUDGET)
+        sources = []
+        source_active = bool(
+            self.voice_client
+            and (
+                self.voice_client.is_playing()
+                or getattr(self.voice_client, "is_paused", lambda: False)()
+            )
+        )
         if (
             not self.voice_client
             or not self.voice_client.is_connected()
-            or not self.voice_client.is_playing()
+            or not source_active
         ):
-            while self.ffmpeg_sources:
-                source = self.ffmpeg_sources.popleft()
-                source.cleanup()
+            sources.extend(self.ffmpeg_sources)
 
-        elif self.voice_client.is_playing():
-            while len(self.ffmpeg_sources) > 1:
-                source = self.ffmpeg_sources.popleft()
-                source.cleanup()
+        elif source_active:
+            sources.extend(list(self.ffmpeg_sources)[:-1])
+
+        for source in sources:
+            # Keep the source discoverable until cleanup and child reaping have
+            # succeeded; force-cleanup can still find it after a timeout/error.
+            await cleanup_with_deadline(
+                source,
+                source.cleanup,
+                deadline,
+                "FFmpeg source",
+            )
+            try:
+                self.ffmpeg_sources.remove(source)
+            except ValueError:
+                pass
 
     async def create_cleanup_task(self) -> None:
         """Checks for inactivity and automatically disconnects from the voice channel if inactive.
@@ -645,7 +670,10 @@ class ServerSession:
 
         while True:
             connected = self.voice_client.is_connected()
-            if not self.voice_client.is_playing():
+            source_active = self.voice_client.is_playing() or getattr(
+                self.voice_client, "is_paused", lambda: False
+            )()
+            if not source_active:
                 if not connected:
                     # Kill the session right away if the bot has been kicked
                     time_until_disconnect = timedelta(seconds=0)
@@ -665,10 +693,13 @@ class ServerSession:
                     break
 
             # Ffmpeg garbage cleaner
-            if self.ffmpeg_sources and not self.voice_client.is_playing():
+            if self.ffmpeg_sources and not source_active:
                 await asyncio.sleep(3)
-                if self.ffmpeg_sources and not self.voice_client.is_playing():
-                    self.clean_ffmpeg_sources()
+                source_active = self.voice_client.is_playing() or getattr(
+                    self.voice_client, "is_paused", lambda: False
+                )()
+                if self.ffmpeg_sources and not source_active:
+                    await self.clean_ffmpeg_sources()
 
             await asyncio.sleep(5)
 
@@ -721,10 +752,13 @@ class ServerSession:
                 except asyncio.CancelledError:
                     ...
 
-        self.session_manager.server_sessions.pop(self.guild_id)
-
         await self.close_streams()
-        self.clean_ffmpeg_sources()
+        await self.clean_ffmpeg_sources()
+
+        # Commit removal only after stream/child cleanup succeeded. On failure,
+        # force cleanup and monitoring can still locate this session.
+        if self.session_manager.server_sessions.get(self.guild_id) is self:
+            self.session_manager.server_sessions.pop(self.guild_id)
         self.bot = None
         self.voice_client = None
         self.deezer_download = None

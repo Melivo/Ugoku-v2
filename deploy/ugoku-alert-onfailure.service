@@ -1,0 +1,15 @@
+[Unit]
+Description=Report an Ugoku outage after service failure
+# OnFailure= is not a requirement edge. This ordering safely completes capture
+# of the failed boot's health.json before an automatic ugoku.service restart.
+Before=ugoku.service
+
+[Service]
+Type=oneshot
+User=leadt3ch
+WorkingDirectory=/home/leadt3ch/ugoku
+ExecStart=/home/leadt3ch/.local/bin/uv run --python /home/leadt3ch/ugoku/venv/bin/python scripts/healthcheck.py --on-failure
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateTmp=true
+CapabilityBoundingSet=

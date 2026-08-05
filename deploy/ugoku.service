@@ -1,0 +1,42 @@
+[Unit]
+Description=Ugoku Discord bot
+Wants=network-online.target
+After=network-online.target
+OnFailure=ugoku-alert-onfailure.service
+
+[Service]
+Type=notify
+NotifyAccess=all
+TimeoutStartSec=35s
+User=leadt3ch
+WorkingDirectory=/home/leadt3ch/ugoku
+Environment=PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
+Environment=PYTHONUNBUFFERED=1
+UMask=0077
+ExecStart=/home/leadt3ch/.local/bin/uv run --python /home/leadt3ch/ugoku/venv/bin/python python main.py
+ExecStartPost=-/home/leadt3ch/.local/bin/uv run --python /home/leadt3ch/ugoku/venv/bin/python python scripts/healthcheck.py --recover
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=25
+RuntimeDirectory=ugoku
+RuntimeDirectoryMode=0750
+RuntimeDirectoryPreserve=restart
+# The watchdog covers only a blocked event loop; gateway/readiness failures use ugoku-health.timer.
+WatchdogSec=60
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateTmp=true
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target
+
+# Production installation:
+# /home/leadt3ch/.local/bin/uv pip install --python /home/leadt3ch/ugoku/venv/bin/python -r requirements.txt -c deploy/constraints-linux-legacy-cpu.txt
+# /home/leadt3ch/ugoku/venv/bin/python -c "import numpy; assert numpy.__version__ == '2.1.3'"
+# sudo install -o root -g root -m 0644 deploy/*.service deploy/*.timer /etc/systemd/system/
+# sudo visudo -cf deploy/ugoku-restart.sudoers
+# sudo install -o root -g root -m 0440 deploy/ugoku-restart.sudoers /etc/sudoers.d/ugoku-restart
+# sudo systemctl daemon-reload
+# sudo systemctl enable --now ugoku.service ugoku-health.timer
+# ugoku-alert-onfailure.service is invoked implicitly through OnFailure= and is not enabled.
