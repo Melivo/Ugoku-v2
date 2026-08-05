@@ -1,3 +1,4 @@
+import inspect
 import os
 import unittest
 from types import SimpleNamespace
@@ -40,6 +41,10 @@ class AdminHealthCommandTests(unittest.IsolatedAsyncioTestCase):
         options = [option for option in commands[0].options if option.name != "ctx"]
         self.assertEqual([option.name for option in options], ["audio"])
         self.assertFalse(options[0].default)
+        annotation = inspect.signature(
+            admin_health.HealthAdminCog.health.callback
+        ).parameters["audio"].annotation
+        self.assertNotIsInstance(annotation, str)
 
     def test_authorization_accepts_admin_guild_owner_and_configured_bot_owner(self):
         guild = SimpleNamespace(owner_id=2)
