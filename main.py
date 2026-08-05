@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import signal
 import time
 import discord
 
@@ -242,6 +243,29 @@ async def close_bot() -> None:
 bot.close = close_bot
 
 
+def _install_shutdown_signal_handlers() -> None:
+    """Let the async close lifecycle finish before py-cord stops its loop."""
+    shutdown_task = None
+
+    def request_shutdown() -> None:
+        nonlocal shutdown_task
+        if shutdown_task is None or shutdown_task.done():
+            shutdown_task = loop.create_task(bot.close())
+
+    try:
+        loop.add_signal_handler(signal.SIGINT, request_shutdown)
+        loop.add_signal_handler(signal.SIGTERM, request_shutdown)
+    except (NotImplementedError, RuntimeError):
+        pass
+
+
+def run_bot() -> None:
+    # Pycord's run() installs loop.stop signal handlers first. Replacing them
+    # on the first loop iteration keeps the loop alive until close_bot finishes.
+    loop.call_soon(_install_shutdown_signal_handlers)
+    bot.run(BOT_TOKEN)
+
+
 @bot.event
 async def on_ready() -> None:
     if getattr(bot, "_ugoku_initialized", False) or getattr(
@@ -376,4 +400,4 @@ if __name__ == "__main__":
         logging.info(f"Loading {module_name}")
         bot.load_extension(module_name)
 
-    bot.run(BOT_TOKEN)
+    run_bot()

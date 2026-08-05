@@ -1,5 +1,6 @@
 import asyncio
 import os
+import signal
 import time
 import unittest
 from collections import deque
@@ -88,3 +89,38 @@ class ShutdownBudgetTests(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(0)
         self.assertFalse(result)
         self.assertTrue(cancelled.is_set())
+
+
+class ShutdownSignalLifecycleTests(unittest.TestCase):
+    def test_run_replaces_pycord_loop_stop_with_async_close(self):
+        callbacks = []
+        signal_handlers = {}
+        shutdown_awaitable = object()
+        shutdown_task = Mock(done=Mock(return_value=False))
+        fake_loop = SimpleNamespace(
+            call_soon=Mock(side_effect=callbacks.append),
+            add_signal_handler=Mock(
+                side_effect=lambda sig, callback: signal_handlers.__setitem__(
+                    sig, callback
+                )
+            ),
+            create_task=Mock(return_value=shutdown_task),
+            stop=Mock(),
+        )
+
+        def pycord_run(_token):
+            signal_handlers[signal.SIGINT] = fake_loop.stop
+            signal_handlers[signal.SIGTERM] = fake_loop.stop
+            for callback in callbacks:
+                callback()
+            signal_handlers[signal.SIGTERM]()
+
+        close = Mock(return_value=shutdown_awaitable)
+        with patch.object(main, "loop", fake_loop), patch.object(
+            main.bot, "close", new=close
+        ), patch.object(main.bot, "run", side_effect=pycord_run):
+            main.run_bot()
+
+        fake_loop.stop.assert_not_called()
+        close.assert_called_once_with()
+        fake_loop.create_task.assert_called_once_with(shutdown_awaitable)
