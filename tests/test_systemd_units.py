@@ -81,6 +81,7 @@ class SystemdUnitStaticTests(unittest.TestCase):
             content = (ROOT / "deploy" / name).read_text(encoding="utf-8")
             with self.subTest(unit=name):
                 self.assertIn("ProtectSystem=full", content)
+                self.assertIn("ReadWritePaths=/run/ugoku", content)
                 self.assertIn("PrivateTmp=true", content)
                 self.assertIn("CapabilityBoundingSet=", content)
 

@@ -11,5 +11,7 @@ WorkingDirectory=/home/leadt3ch/ugoku
 ExecStart=/home/leadt3ch/.local/bin/uv run --python /home/leadt3ch/ugoku/venv/bin/python scripts/healthcheck.py --on-failure
 NoNewPrivileges=true
 ProtectSystem=full
+# The failure hook uses the same locked incident and alert-outbox state.
+ReadWritePaths=/run/ugoku
 PrivateTmp=true
 CapabilityBoundingSet=

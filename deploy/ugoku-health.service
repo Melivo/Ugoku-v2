@@ -9,5 +9,7 @@ ExecStart=/home/leadt3ch/.local/bin/uv run --python /home/leadt3ch/ugoku/venv/bi
 # NoNewPrivileges cannot be enabled here: this narrowly invokes the sudoers-
 # restricted systemctl restart command after a failed probe.
 ProtectSystem=full
+# The incident owner persists counters and the durable alert outbox here.
+ReadWritePaths=/run/ugoku
 PrivateTmp=true
 CapabilityBoundingSet=
