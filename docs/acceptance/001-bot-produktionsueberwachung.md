@@ -1,6 +1,6 @@
 # Abnahmeprotokoll: Ugoku-Produktionsüberwachung
 
-Dieses Protokoll ist eine Vorlage und markiert T10 ausdrücklich als **OFFEN**. T1–T9 besitzen lokale Code-/Test-Evidence; es wurde jedoch keine Staging- oder Produktionsabnahme ausgeführt. Echte Nachweise dürfen erst nach Durchführung durch die verantwortlichen Personen eingetragen werden.
+Dieses Protokoll enthält lokale Code-/Test-Evidence fuer T1-T9 sowie die unten dokumentierte Teilabnahme auf Produktion. Nicht ausgefuehrte Fehleruebungen bleiben ausdruecklich offen.
 
 - Runbook: `docs/runbooks/bot-produktionsueberwachung.md`
 - Planquelle: `.agents/results/plan-20260805-000000.json`
@@ -147,7 +147,18 @@ Erwartung: keine SIGKILL-bedingten Reste nach `TimeoutStopSec=25`; T8-Tests `clo
 
 ## Abschlussentscheidung
 
-**Aktueller Status: T10 offen.** Die folgenden Felder benötigen echte Staging-/Production-Evidence und bleiben bis dahin leer; lokale Tests ersetzen diese Betriebsnachweise nicht.
+## Produktionsnachweise vom 2026-08-05
+
+- Host: `automation.leadt3ch.com`
+- Revision: `ecb8bec` auf `fix/spotify-playlist-oauth`
+- Unit-/sudoers-Validierung: `systemd-analyze verify` und `visudo -cf` bestanden
+- Laufzeitbasis: `ugoku.service` und `ugoku-health.timer` aktiv; regulärer Healthcheck Exit `0`
+- Health-State: Gateway, Slash- und Audio-Readiness gesund; keine blockierten Ressourcen
+- Watchdog-Hook-Uebung: `incident_id` `7223c2d2-164f-4460-a37e-cb755854cb79`; OUTAGE, RESTART und RECOVERY wurden jeweils mit `delivered=true` belegt.
+- Recovery: `fault_started_at_wall` `2026-08-05T18:13:30.413482+00:00`, `ended_at_wall` `2026-08-05T18:16:53.327133+00:00`, Dauer rund 203 Sekunden und damit innerhalb des 300-Sekunden-SLA.
+- Hinweis: Die Uebung nutzte den installierten `--on-failure`-Hook und einen kontrollierten systemd-Restart; ein echter Event-Loop-Stall wurde nicht erzeugt.
+
+**Aktueller Status: T10 teilweise abgenommen.** A2 sowie die Basis-Readiness sind produktiv nachgewiesen. A1, A3, die Berechtigungs-Negativprobe fuer `/health` und die vollstaendige Shutdown-Uebung bleiben offen.
 
 | Kriterium | Staging | Production |
 |---|---|---|
