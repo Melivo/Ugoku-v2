@@ -29,11 +29,11 @@ otherwise the chain falls through to a key-free default.
 
 | Field | Value |
 |-------|-------|
-| Surface | Voicebox MCP at `127.0.0.1:17493` |
-| Synthesize | `voicebox_speak{text, profile, language}` -> `generation_id` |
+| Surface | Voicebox MCP (Streamable HTTP) at `127.0.0.1:17493/mcp`; REST on the same port |
+| Synthesize | MCP `voicebox_speak{text, profile, language}` -> `generation_id` (REST `POST /speak` fallback) |
 | Retrieve wav | REST `GET /audio/{generation_id}` (MCP has no save-to-disk) |
-| Timing (real) | `voicebox_transcribe{audio_path}` on the wav -> `source: voicebox-stt` |
-| Timing (fallback) | whisper.cpp -> `estimated` (no wav written, `audio` field empty) |
+| Timing (real) | MCP `voicebox_transcribe{audio_path}` on the wav -> `source: voicebox-stt` (REST `POST /transcribe` fallback) |
+| Timing (fallback) | `estimated` (no wav written, `audio` field empty); a whisper.cpp hop is reserved but not wired (`TODO(oma-deferred): whisper-cpp`) |
 | Side effect | Narration plays on the speakers during synthesis |
 | Health | exit 5 if MCP down; exit 3 if the named profile is missing |
 
@@ -50,7 +50,7 @@ otherwise the chain falls through to a key-free default.
 
 | Field | Value |
 |-------|-------|
-| Transport | `oma slide` generate deck -> `oma slide export --format png` -> 1920×1080 frames |
+| Transport | `oma slide` generate deck -> `oma slide png --dir <deck> --out-dir <runDir>/visuals` -> 1920×1080 frames |
 | Layering | oma-slide internally calls oma-image (same key-free chain) |
 | Use | explainer code/diagram frames |
 

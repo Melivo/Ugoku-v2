@@ -1,24 +1,24 @@
 {
   "triggers": {
     "scm": {
-      "lastTriggeredAt": "2026-08-05T16:32:49.864Z",
+      "lastTriggeredAt": "2026-08-06T23:46:05.858Z",
       "count": 1
     },
     "debug": {
-      "lastTriggeredAt": "2026-08-04T19:46:10.029Z",
-      "count": 1
+      "lastTriggeredAt": "2026-08-06T22:55:24.900Z",
+      "count": 2
     },
     "review": {
-      "lastTriggeredAt": "2026-08-05T16:10:49.990Z",
-      "count": 2
+      "lastTriggeredAt": "2026-08-06T23:30:22.981Z",
+      "count": 1
     },
     "work": {
       "lastTriggeredAt": "2026-07-15T15:36:32.531Z",
       "count": 1
     },
     "design": {
-      "lastTriggeredAt": "2026-08-04T22:36:51.880Z",
-      "count": 1
+      "lastTriggeredAt": "2026-08-06T23:21:00.696Z",
+      "count": 2
     },
     "plan": {
       "lastTriggeredAt": "2026-08-05T03:14:45.940Z",

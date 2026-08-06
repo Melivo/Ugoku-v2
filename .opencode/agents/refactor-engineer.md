@@ -3,6 +3,8 @@ name: refactor-engineer
 description: Behavior-preserving refactoring specialist. Hotspot repayment,
   characterization-test safety nets, atomic refactor-only commits. Never changes
   observable behavior.
+model: openai/gpt-5.6-terra
+variant: medium
 mode: subagent
 ---
 
@@ -56,4 +58,4 @@ CHARTER_CHECK:
 6. Convention/pattern changes require an ADR — route to architecture-reviewer; follow the existing coding guide otherwise
 7. Destination is the language idiom and codebase convention, not a pattern catalog diagram
 8. Document out-of-scope findings for other agents
-9. Never modify `.agents/` files
+9. Never modify `.agents/` files (SSOT) — run outputs under `.agents/results/` and `.agents/state/memories/` are the only exceptions

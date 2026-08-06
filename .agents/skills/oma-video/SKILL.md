@@ -31,6 +31,7 @@ Generate finished `.mp4` videos through a key-optional, 3-tier (CLI-first / MCP 
 - Generating speech audio only (no video) -> use `oma-voice`
 - Non-linear video editing of an existing finished mp4 -> out of scope (OpenCut-MCP deferred)
 - Supervised headed web capture is in-scope (`--source web`); live streaming is out of scope
+- Interactive HTML explainer document (not a video) -> use `oma-explainer`
 
 ### Expected inputs
 - A brief (topic / README path / data) plus optional mode, aspect, locale, captions, visual, voice, music, duration, compositor, capture path, seed
@@ -100,7 +101,7 @@ outputs:
 ### Failure and recovery
 - If a provider is unavailable, try the next provider in the capability's `order`; only chain exhaustion is a stage failure.
 - If the Remotion toolchain is not bootstrapped, point the user to `oma video doctor --install` (one-time: deps + headless shell + Pretendard font); fall back to the MPT compositor where applicable (MPT itself needs a one-time `oma video doctor --install-mpt`).
-- If Voicebox MCP is down, fall back through voicebox-stt -> whisper.cpp -> estimated timing (still produces captions).
+- If Voicebox MCP is down, fall back to estimated timing (still produces captions). A whisper.cpp hop between the two is reserved but not yet wired (`TODO(oma-deferred): whisper-cpp`).
 - If the brief locale is non-source, translate via oma-translator (key-free); if absent, warn and keep source text.
 
 ### Exit
@@ -202,7 +203,7 @@ Before invoking `oma video generate`, the calling agent runs this checklist. **I
 - [ ] **Locale**: narration + caption language (default from config; translated via oma-translator when non-source).
 - [ ] **Captions**: `tiktok` (centered, static windowed cues), `lower-third`, or `none`.
 - [ ] **Duration**: target seconds (<= 180) or `auto` (derived from the script).
-- [ ] **Voice / music**: voice profile or `none`; music `upbeat` / `calm` / `none`.
+- [ ] **Voice / music**: voice profile or `none`; music `upbeat` / `calm` / `none`. **The default voice is `none` → a silent video with estimated caption timing.** Pass `--voice <profile>` (a Voicebox profile) whenever narration is expected. Music is rendered offline by Strudel and mixed at −18 dB; it needs a one-time `oma video doctor --install-strudel` and degrades to no music without it.
 
 **Amplification shortcut.** For a one-line brief (e.g. "shorts about Jeju coffee"), do not pop a questionnaire if the request is genuinely simple. Instead **amplify inline and show the user** the inferred plan before invoking:
 
@@ -246,7 +247,7 @@ oma video generate "<brief>" [--mode shorts|explainer|demo] \
                              [--aspect 9:16|16:9|1:1|auto] [--locale <lang>] \
                              [--captions tiktok|lower-third|none] \
                              [--visual auto|generate|stock|aigc|slide] \
-                             [--voice <profile>|none] [--music upbeat|calm|none] \
+                             [--voice <profile>|none] [--music upbeat|calm|cinematic|lofi|piano|none] \
                              [--duration <sec>|auto] [--compositor remotion|mpt] \
                              [--capture <path>] \
                              [--source file|web] [--url <url>] [--device <name>] \
@@ -295,14 +296,21 @@ Other skills call `oma video generate --format json` and parse the JSON envelope
 ### Audio Sync & Captions Format
 
 - **Narration is one wav**: oma-voice joins every scene line into a single `audio/narration-01.wav`, referenced by `render-spec.audio.narration`. There are no per-scene `narration-NN.wav` files.
-- **Timing**: per-line offsets live in `timing.json` (TTS-native -> voicebox-stt -> whisper.cpp -> estimated); scene boundaries and caption cues are derived from it.
+- **Timing**: per-line offsets live in `timing.json` (voicebox-stt -> estimated; the `tts-native` and `whisper-cpp` source values are reserved but not yet wired — `TODO(oma-deferred): whisper-cpp`); scene boundaries and caption cues are derived from it.
 - **Captions**: key-free `.srt` (+ `.vtt`) built from `timing.json`; `render-spec.captions.file` points at the `.srt`. The compositor renders **static windowed cues** — the cue active at the current frame, CSS-wrapped (no per-word animation).
-- **Music**: when set, mixed under narration at `render-spec.audio.musicGainDb` (default −18 dB).
+- **Music**: `--music <preset>` renders a BGM bed with **Strudel** and mixes it under narration at `render-spec.audio.musicGainDb` (default −18 dB). The bed is generated offline (headless Chrome + `OfflineAudioContext`), so it needs no key, no network, and no audio device — a 30s bed renders in well under a second.
+  - **Presets**: `calm` (sustained pad + arpeggio), `upbeat` (bright plucks), `cinematic` (drone build to a lead), `lofi` (warm chords, swung ticks), `piano` (neoclassical arpeggio). Each preset picks its key and mode from the run `seed`, so the same preset sounds different run to run without a second pattern.
+  - **Artifacts** in the run dir: `music/bgm.wav` (mixed by the compositor), `music/bgm.mp3` (preview), `music/bgm-raw.wav` (pre-master), and `music/pattern.strudel` — the source that produced them, editable and re-renderable by hand.
+  - **Level**: every bed is normalised to −14 LUFS with a static gain before a peak limiter, so `musicGainDb` means the same thing for every preset. Normalisation is deliberately *not* `loudnorm`'s one-pass mode, which flattens the arrangement arc.
+  - **Opt-in install**: `@strudel/*` is AGPL-3.0-or-later while the oma CLI is MIT, so the deps are never bundled and never installed implicitly. Run `oma video doctor --install-strudel` once. The CLI never imports Strudel — it spawns `resources/strudel/render.mjs` as a subprocess, the same boundary the Remotion / Playwright projects use.
+  - **Fallback**: a missing install, a missing Chrome, or a failed render degrades to *no music* with a warning. The run still succeeds and `audio.music` stays unset (never a dangling `staticFile()` ref).
+  - **Determinism**: the built-in beds are oscillator-only (sine / triangle / square / sawtooth), which render byte-identically on replay. Noise sounds (`white` / `pink` / `brown`) draw from `Math.random()` and would break that, so the templates avoid them.
 
 ## References
 
 Follow `resources/execution-protocol.md` step by step.
 See `resources/vendor-matrix.md` for provider precheck + fallback-chain rules.
+Author `--script` files against `resources/script-schema.md` (full field reference + example; `schemaVersion: "1.0"` is required).
 Use `resources/prompt-tips.md` for writing effective briefs per mode.
 Before submitting, run `resources/checklist.md`.
 The vendored Remotion compositor lives at `resources/remotion/` (see its `README.md`).

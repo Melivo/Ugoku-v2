@@ -11,6 +11,13 @@ Follow this guide to use context efficiently.
 2. **No duplicate reads**: Do not re-read files already read
 3. **Lazy resource loading**: Load resources only when needed
 4. **Maintain records**: Note read files and symbols in progress
+5. **Run functions over data, don't read data into context**: when a scene
+   processes bulk data (harvest results, logs, transcripts, large JSON), do the
+   processing through a deterministic tool/CLI stage (`CALL_TOOL`) and bring
+   back only a summary plus the artifact path. Streaming raw data through the
+   context spends tokens reading what a program could have computed — the
+   `oma market` pipe stages (harvest → score → fuse → cluster stay in JSON;
+   only the rendered brief path returns) are the reference pattern.
 
 ---
 
@@ -157,7 +164,7 @@ When a trigger fires, the Orchestrator executes:
 
 3. **Re-spawn**: Start a fresh agent with the checkpoint as context
    - **Claude Code**: New Agent tool call with checkpoint in prompt
-   - **CLI agents**: `oma agent:spawn` with `--checkpoint checkpoint-{agent-id}`
+   - **CLI agents**: write the checkpoint to a file and pass that file through the required prompt operand: `oma agent:spawn {agent-id} {checkpoint-file} {session-id} -w {workspace}`
 
 4. **Resume**: New agent reads checkpoint, continues from remaining items only
 

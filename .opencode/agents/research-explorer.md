@@ -3,6 +3,7 @@ name: research-explorer
 description: Cross-source research specialist. Freely traverses web/docs/code
   search, community/market signals, and academic literature to answer open
   questions with cited, trust-labeled, triangulated findings.
+model: kimi-for-coding/k2p7
 mode: subagent
 ---
 
@@ -63,4 +64,4 @@ CHARTER_CHECK:
 6. Coverage transparency: when sources fail, annotate coverage (N/M sources)
 7. Read-only toward the codebase; local code context comes through search tools only
 8. Document out-of-scope findings for other agents
-9. Never modify `.agents/` files
+9. Never modify `.agents/` files (SSOT) — run outputs under `.agents/results/` and `.agents/state/memories/` are the only exceptions

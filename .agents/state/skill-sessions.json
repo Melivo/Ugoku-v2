@@ -1,10 +1,37 @@
 {
   "sessions": {
-    "ses_03113d583ffebYIoU47ZEIttWv": {
+    "ses_026b6239effenV4cbOL0jJfh8C": {
       "injected": [
-        ".agents\\skills\\oma-dev-workflow\\SKILL.md"
+        ".agents\\skills\\oma-debug\\SKILL.md",
+        ".agents\\skills\\oma-db\\SKILL.md",
+        ".agents\\skills\\oma-dev-workflow\\SKILL.md",
+        ".agents\\skills\\oma-frontend\\SKILL.md"
       ],
-      "timestamp": 1785947569745
+      "timestamp": 1786057681644
+    },
+    "ses_026b5cbc7ffejabtkW0XYJNQ43": {
+      "injected": [
+        ".agents\\skills\\oma-debug\\SKILL.md"
+      ],
+      "timestamp": 1786056946810
+    },
+    "ses_0269cc9e6ffe1tZ0nxvZUvLCM6": {
+      "injected": [
+        ".agents\\skills\\oma-debug\\SKILL.md"
+      ],
+      "timestamp": 1786058585678
+    },
+    "ses_0269993f0ffeG0NksOqJIN0EYU": {
+      "injected": [
+        ".agents\\skills\\oma-debug\\SKILL.md"
+      ],
+      "timestamp": 1786058796190
+    },
+    "ses_026961e1cffeV2Yw7mbzj022Vt": {
+      "injected": [
+        ".agents\\skills\\oma-debug\\SKILL.md"
+      ],
+      "timestamp": 1786059022873
     }
   }
 }

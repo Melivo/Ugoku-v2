@@ -15,7 +15,7 @@ plan when the brief is a one-liner.
    - `mode` ∈ {`shorts`, `explainer`, `demo`}.
    - `aspect` ∈ {`9:16`, `16:9`, `1:1`, `auto`} (`auto` snaps to the mode default: shorts -> 9:16, explainer/demo -> 16:9).
    - `captions` ∈ {`tiktok`, `lower-third`, `none`}; `visual` ∈ {`auto`, `generate`, `stock`, `aigc`, `slide`}.
-   - `music` ∈ {`upbeat`, `calm`, `none`}; `compositor` ∈ {`remotion`, `mpt`}.
+   - `music` ∈ {`upbeat`, `calm`, `cinematic`, `lofi`, `piano`, `none`}; `compositor` ∈ {`remotion`, `mpt`}.
    - `duration` ≤ `limits.max_duration_sec` (180); resulting `scenes` ≤ `limits.max_scenes` (40).
    - `out` is inside `$PWD` unless `--allow-external-out`.
    - For `demo`: `--capture` (if given) exists, is absolute + `$PWD`-guarded, and is a valid video format.
@@ -111,7 +111,7 @@ State plainly to the user: **"Demo capture is performed by a human."** Then:
 |-----------|--------|
 | No provider for a required capability | Exit 5, print `Run: oma video doctor` |
 | Remotion toolchain not bootstrapped | Exit 1 (CompositorBootstrapError) + doctor remediation; MPT fallback where applicable |
-| Voicebox MCP down | Fall back voicebox-stt -> whisper.cpp -> estimated timing; still emit captions |
+| Voicebox MCP down | Fall back to estimated timing; still emit captions (whisper.cpp hop deferred: `TODO(oma-deferred): whisper-cpp`) |
 | Pexels / Pixelle key absent | Skip provider; fall through to oma-image stills; annotate coverage in `warnings` |
 | `demo` with no capture + no Cap | Guided protocol (Step 4b); stop without rendering |
 | `--capture` outside `$PWD` or wrong format | Exit 4 with the path/format problem |
