@@ -23,6 +23,31 @@ Alle drei Alarmtypen werden vor dem Versand dedupliziert in `alert-outbox.json` 
 
 ## Installationsreferenz
 
+## Deployment
+
+Der Produktionshost ist ueber Tailscale SSH als `leadt3ch@automation`
+erreichbar. Fuer ein reguläres Deployment den gepushten Branch
+fast-forward aktualisieren, die Abhaengigkeiten mit dem Legacy-CPU-Constraint
+pruefen und den Dienst neu starten:
+
+```sh
+ssh leadt3ch@automation
+cd /home/leadt3ch/ugoku
+git pull --ff-only origin fix/spotify-playlist-oauth
+/home/leadt3ch/.local/bin/uv pip install \
+  --python /home/leadt3ch/ugoku/venv/bin/python \
+  -r requirements.txt \
+  -c deploy/constraints-linux-legacy-cpu.txt
+/home/leadt3ch/ugoku/venv/bin/python -c 'import numpy; assert numpy.__version__ == "2.1.3"'
+sudo /bin/systemctl restart ugoku.service
+/home/leadt3ch/.local/bin/uv run \
+  --python /home/leadt3ch/ugoku/venv/bin/python \
+  scripts/healthcheck.py --json
+```
+
+Wenn der erste Start an einer voruebergehend abgelehnten Librespot-Verbindung
+scheitert, den systemd-Retry abwarten und den Healthcheck erneut ausfuehren.
+
 Nur im geplanten Wartungsfenster und mit Root-Rechten ausführen:
 
 ```sh
