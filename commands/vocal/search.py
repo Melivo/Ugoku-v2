@@ -56,14 +56,22 @@ class Search(commands.Cog):
                         offset=offset,
                     )
                     items = []
-                    for playlist_item in playlist_tracks["items"]:
-                        item = (
-                            playlist_item.get("item") or playlist_item.get("track")
-                            if playlist_item
-                            else None
+                    while playlist_tracks:
+                        for playlist_item in playlist_tracks["items"]:
+                            item = (
+                                playlist_item.get("item")
+                                or playlist_item.get("track")
+                                if playlist_item
+                                else None
+                            )
+                            if item and item.get("type", "track") == "track":
+                                items.append(item)
+
+                        if not playlist_tracks.get("next"):
+                            break
+                        playlist_tracks = await asyncio.to_thread(
+                            spotify.sessions.sp.next, playlist_tracks
                         )
-                        if item and item.get("type", "track") == "track":
-                            items.append(item)
                     cover = (
                         playlist_info["images"][0]["url"]
                         if playlist_info.get("images")

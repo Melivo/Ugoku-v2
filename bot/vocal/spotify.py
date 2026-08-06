@@ -134,6 +134,7 @@ class Librespot:
         self.session: Optional[Session] = None
         self.loop = asyncio.get_running_loop()
         self.executor = ThreadPoolExecutor(max_workers=1)
+        self._stream_load_lock = asyncio.Lock()
 
     async def create_session(self, path: Path = Path("./credentials.json")) -> None:
         """Wait for credentials and generate a json file if needed."""
@@ -236,13 +237,14 @@ class Librespot:
     async def get_stream(
         self, track_id: TrackId, audio_quality: AudioQuality = AudioQuality.VERY_HIGH
     ) -> AbsChunkedInputStream:
-        stream = await asyncio.to_thread(
-            self.session.content_feeder().load,
-            track_id,
-            VorbisOnlyAudioQuality(audio_quality),
-            False,
-            None,
-        )
+        async with self._stream_load_lock:
+            stream = await asyncio.to_thread(
+                self.session.content_feeder().load,
+                track_id,
+                VorbisOnlyAudioQuality(audio_quality),
+                False,
+                None,
+            )
         return stream.input_stream.stream()
 
 
@@ -357,11 +359,18 @@ class Spotify:
                     sp_.playlist_tracks, playlist_id=id_, offset=offset
                 )
 
-            for item in playlist_API["items"]:
-                # Spotify changed playlist entries from "track" to "item".
-                track_api = (item.get("item") or item.get("track")) if item else None
-                if track_api and track_api.get("type", "track") == "track":
-                    tracks.append(self.get_track(track_api))
+            while playlist_API:
+                for item in playlist_API["items"]:
+                    # Spotify changed playlist entries from "track" to "item".
+                    track_api = (
+                        (item.get("item") or item.get("track")) if item else None
+                    )
+                    if track_api and track_api.get("type", "track") == "track":
+                        tracks.append(self.get_track(track_api))
+
+                if not playlist_API.get("next"):
+                    break
+                playlist_API = await asyncio.to_thread(sp_.next, playlist_API)
 
         # ARTIST
         elif type == "artist":

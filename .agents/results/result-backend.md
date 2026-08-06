@@ -1,45 +1,94 @@
-# Backend-Ergebnis — finale HIGH-Remediation
+# Backend Result — Spotify Queue Regression Fix
 
 ## Status: completed
 
-## Zusammenfassung
+## Summary
 
-`ugoku.service` erzwingt Boot→READY mit `TimeoutStartSec=30s`; dieselbe 30-Sekunden-Grenze umfasst im Prozess alle pre-READY-Schritte. Spotify besitzt nun eine explizite Ein-Versuch-Grenze (`_init_spotify_once`): Fehler werden nach Cleanup propagiert und nicht intern unbegrenzt wiederholt.
+- Added a `Librespot`-owned `asyncio.Lock` around the complete blocking `content_feeder().load(...)` operation so playback, preload, keepalive, and health-probe stream loads cannot overlap.
+- Updated Spotify playlist loading to follow Spotipy's `next` paging links and aggregate every page.
+- Added focused async regression tests for stream-load serialization/result integrity and multi-page playlist aggregation.
 
-Der dokumentierte und in der Unit referenzierte Legacy-Linux-Installationspfad installiert mit `-c deploy/constraints-linux-legacy-cpu.txt` und prüft NumPy 2.1.3 vor Unit-Aktivierung. Der maschinenlesbare Plan steht auf `phase=IMPLEMENTED`/`status=ACTIVE`; operationaler Recovery-Abschluss erfolgt nach strikt gesundem frischem post-READY-State und durable eingereihtem RECOVERY, unabhängig von einer noch pending Webhook-Zustellung.
+## Files Changed
 
-Es wurden keine Staging- oder Production-Operationen ausgeführt.
-
-## Geänderte Dateien
-
-- `main.py`
 - `bot/vocal/spotify.py`
-- `deploy/ugoku.service`
-- `deploy/constraints-linux-legacy-cpu.txt`
-- `README.md`
-- `docs/runbooks/bot-produktionsueberwachung.md`
-- `.agents/results/plan-20260805-000000.json`
-- `tests/test_main_initialization.py`
-- `tests/test_systemd_units.py`
+- `tests/test_spotify.py`
 - `.agents/results/result-backend.md`
 
-## Verifikation
+## Verification
 
-| Prüfung | Ergebnis |
-|---|---|
-| Spotify-/Boot-Regressionen | PASS — 6 Tests |
-| systemd-/Installations-/Plan-Regressionen | PASS — 7 Tests |
-| `venv/Scripts/python.exe -m unittest discover -s tests -v` | PASS — 63 Tests |
-| `venv/Scripts/python.exe -m compileall -q config.py main.py bot scripts tests` | PASS |
-| `uv pip check --python venv/Scripts/python.exe` | PASS — 86 Pakete kompatibel |
-| `git diff --check` | PASS; nur bestehende CRLF-Hinweise |
+- `venv\Scripts\python.exe -m unittest tests.test_spotify -v` — PASS (2 tests)
+- `venv\Scripts\python.exe -m unittest tests.test_spotify tests.test_audio_probe tests.test_main_initialization -v` — PASS (19 tests)
+- `venv\Scripts\python.exe -m unittest discover -s tests -v` — PASS (68 tests)
+- `venv\Scripts\python.exe -m compileall -q bot\vocal\spotify.py tests\test_spotify.py` — PASS
+- `git diff --check -- bot/vocal/spotify.py tests/test_spotify.py` — PASS (existing Windows LF→CRLF notice only)
 
 ## Acceptance Criteria Checklist
 
-- [x] `TimeoutStartSec=30s` und `HEALTH_SLA_BOOT_READY_S=30` sind regressionsgetestet.
-- [x] Die gesamte pre-READY-Initialisierung einschließlich initialem Health-State ist begrenzt.
-- [x] Spotify führt pro Start genau einen Initialisierungsversuch aus und propagiert permanente Fehler.
-- [x] Frische Legacy-Linux-Installationen binden den Constraint ein und prüfen NumPy 2.1.3 vor Aktivierung.
-- [x] Planstatus und Recovery-/Delivery-Vertrag entsprechen der Runtime.
-- [x] Vollständige lokale Testsuite ist erfolgreich.
-- [x] Keine Staging-/Production-Operationen.
+- [x] The entire Librespot feeder load is serialized by an `asyncio.Lock` owned by `Librespot`.
+- [x] Concurrent fake feeder loads have a maximum in-flight count of one.
+- [x] Concurrent stream results remain associated with the requested track IDs.
+- [x] Spotify playlist pages are followed until no next page remains.
+- [x] Mocked paginated playlist results aggregate all pages.
+- [x] Relevant and full test suites pass.
+- [x] No unrelated application code was changed.
+
+## Remaining Issues
+
+None identified.
+
+---
+
+# Backend Result — Search Play-all Playlist Pagination
+
+## Status: completed
+
+## Summary
+
+- Updated the Spotify playlist URL path in `Search.execute_search()` to follow
+  Spotipy `next` pages before constructing the track list used by Play all.
+- Preserved filtering for both Spotify playlist entry keys (`item` and `track`)
+  and non-track entries.
+- Added a focused 51-track regression test that crosses Spotify's 50-item page
+  boundary.
+- Inspected but did not alter or revert the pre-existing changes in
+  `bot/vocal/spotify.py` and `tests/test_spotify.py`.
+
+## Files Changed
+
+- `commands/vocal/search.py`
+- `tests/test_vocal_search.py`
+- `.agents/results/bugs/bug-20260807-search-playlist-pagination.md`
+- `.agents/results/result-backend.md`
+
+## Verification
+
+- RED: `venv\Scripts\python.exe -m unittest tests.test_vocal_search -v` —
+  expected failure before the source fix (`50 != 51`).
+- GREEN: `venv\Scripts\python.exe -m unittest tests.test_vocal_search -v` —
+  PASS (1 test).
+- `venv\Scripts\python.exe -m unittest tests.test_vocal_search tests.test_spotify -v`
+  — PASS (3 tests).
+- `venv\Scripts\python.exe -m compileall -q commands\vocal\search.py tests\test_vocal_search.py`
+  — PASS.
+- `git diff --check -- commands/vocal/search.py tests/test_vocal_search.py` —
+  PASS (existing Windows LF-to-CRLF notice only).
+
+## Scoped Review
+
+- Security: no auth, input trust boundary, secret, query, or serialization change.
+- Performance: requests are bounded by Spotify's finite `next` chain; API pages
+  are fetched sequentially using the existing off-thread convention.
+- Accessibility: not applicable to this backend command-flow change.
+- Code quality: pagination matches the existing Spotipy convention and remains
+  inside the current external-service integration path.
+- Findings: no CRITICAL, HIGH, MEDIUM, or LOW follow-up findings in scope.
+
+## Acceptance Criteria Checklist
+
+- [x] Playlist URL searches aggregate every Spotify API page for Play all.
+- [x] The regression test crosses the first-page boundary at 51 tracks.
+- [x] Existing `item` and `track` playlist entry shapes remain supported.
+- [x] `commands/vocal/sp_playlist.py` was not modified.
+- [x] Pre-existing work in `bot/vocal/spotify.py` and `tests/test_spotify.py`
+  was inspected and left untouched.
+- [x] Focused tests and syntax compilation pass.

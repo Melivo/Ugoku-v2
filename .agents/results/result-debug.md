@@ -1,60 +1,44 @@
 ## Status: completed
 
-## Summary
+## Zusammenfassung
 
-Statische Untersuchung des Production-Hängers. Die stärkste Root-Cause-Kette ist fehlende Ownership und fehlender Shutdown für Librespot-, Cache-, Voice- und FFmpeg-Ressourcen:
+- **Librespot:** Keine weitere bestätigte verwundbare Stelle. Der einzige Produktionsaufruf von `content_feeder().load(...)` ist zentral verriegelt; sämtliche drei Produktionspfade zu `get_stream()` laufen darüber.
+- **Spotify-Pagination:** Der zentrale Playlist-/Liked-Songs-Pfad ist korrigiert und vollständig paginiert. Zwei direkte Spotipy-Abrufe außerhalb dieses Pfads bleiben bestätigt unvollständig und benötigen separate Fixes.
+- Es wurde kein Produktions- oder Testcode geändert.
 
-1. `main.py:37-62` initialisiert langlebige Ressourcen in `on_ready`, obwohl dieses Event mehrfach auftreten kann. `clean_cache_task()` ist endlos (`main.py:86-89`) und wird in `gather()` aufgenommen. `main.py:82-83` definiert ein nicht von Pycord dispatchtes `on_close`-Event; daher ist selbst der HTTP-Cleanup nicht zuverlässig erreichbar.
-2. `bot/vocal/spotify.py:55-57` startet den Librespot-Listener ohne Task-Referenz. `bot/vocal/spotify.py:114` erzeugt einen dedizierten `ThreadPoolExecutor`, der nirgends heruntergefahren wird. Erfolgreiche Probe-Streams aus `bot/vocal/spotify.py:179-187` werden nicht geschlossen. Rekursive Retries in `bot/vocal/spotify.py:73-78` und `bot/vocal/spotify.py:152-169` sind unbeschränkt.
-3. Bei aggressivem Caching (`config.py:48`) startet `bot/vocal/track_dataclass.py:240-245` pro Track einen losgelösten Cache-Task. Der Worker liest in `bot/vocal/track_dataclass.py:257-288` bis EOF, während `bot/vocal/track_dataclass.py:248` die einzige am Track sichtbare Librespot-Streamreferenz durch einen `Path` ersetzt. `close_stream()` (`bot/vocal/track_dataclass.py:326-340`) kann den tatsächlich noch vom Worker gelesenen Stream danach nicht mehr schließen. Task-Cancellation beendet `asyncio.to_thread`-Arbeit nicht. So sammeln sich blockierte Python-Executor-Threads und Librespot-Verbindungen an.
-4. Jede Wiedergabe startet FFmpeg in `bot/vocal/server_session.py:274-288`. Cleanup ruft synchron `source.cleanup()` auf (`bot/vocal/server_session.py:625-638`) und wird auch aus Event-Loop-Coroutinen aufgerufen (`bot/vocal/server_session.py:271`, `667-671`, `699-727`). Pycords FFmpeg-Cleanup führt `kill()` plus blockierendes `communicate()` aus. Ein hängender Cleanup kann daher den Event Loop blockieren, obwohl das Gateway seine Session auf Transportebene weiter fortsetzt. Das erklärt, warum auch der Spotify-unabhängige `/ping`-Pfad (`commands/other/ping.py:18-29`) nicht mehr reagiert.
-5. `stop_playback()` wartet unbegrenzt auf einen Callback (`bot/vocal/server_session.py:484-505`). Der Callback läuft erst, wenn der AudioPlayer-Thread seinen möglicherweise blockierenden FFmpeg-Read beendet. Das blockiert Voice-Interaktionen und Cleanup.
-6. Reconnects verschärfen die Akkumulation: `bot/vocal/session_manager.py:43-62` entfernt die alte Session und startet deren Cleanup fire-and-forget, bevor die neue Session gespeichert wird. Das alte `clean_session()` führt später ein unbedingtes `pop(guild_id)` aus (`bot/vocal/server_session.py:724`) und kann dadurch die neue Session aus dem Manager entfernen. Deren Tasks, VoiceClient und FFmpeg-Prozess bleiben dann ohne erreichbaren Owner. Zusätzlich ist `connect_task` bei bereits bestehender Voice-Verbindung und fehlendem Manager-Eintrag nicht initialisiert (`bot/vocal/session_manager.py:43-58`).
-7. Beim SIGTERM stoppt Pycords `bot.run()` den Loop und cancelt Tasks; Cancellation stoppt laufende `to_thread`-Worker nicht. Wegen des nie ausgeführten anwendungsspezifischen Shutdowns bleiben der dedizierte Librespot-Executor, Cache-Worker und FFmpeg-Kinder aktiv. Nicht-daemonisierte Executor-Threads halten Python am Leben; `deploy/ugoku.service:14` erzwingt nach 30 Sekunden SIGKILL für die ganze cgroup. Das beobachtete systemd-Bild ist damit konsistent.
+## Befunde
 
-## Minimaler Fixvorschlag
+### MEDIUM — Fix erforderlich
 
-1. Einen einmaligen, expliziten Lifecycle statt Ressourcenaufbau in ungeschütztem `on_ready` verwenden. Alle Hintergrundtasks referenzieren. Beim echten `Bot.close()` beziehungsweise in `async main()`/`finally` in dieser Reihenfolge schließen: ServerSessions, Cache-Tasks und deren Streams, Librespot-Listener, Librespot-Session und Executor, HTTP-/Deezer-Clients, danach `super().close()`.
-2. Im aggressiven Spotify-Cache den ursprünglichen Stream und den Cache-Task separat am `Track` halten. `store_spotify_stream` bekommt den Stream explizit. `Track.close()` schließt zuerst diesen Stream und wartet begrenzt auf den Cache-Task; erst danach darf die Referenz verworfen werden. Als sofortige Production-Mitigation kann aggressives Caching deaktiviert werden, das ersetzt aber den Lifecycle-Fix nicht.
-3. `stop_event.wait()` mit Timeout versehen; beim Timeout FFmpeg explizit bereinigen. Blockierendes `source.cleanup()` nicht synchron auf dem Event Loop ausführen.
-4. Session-Ersetzung serialisieren oder mindestens beim Entfernen identitätsprüfen: nur poppen, wenn `manager.server_sessions.get(guild_id) is self`; `connect_task = None` vor der Verzweigung setzen. Alte Session-Cleanups müssen owned/awaited sein.
+1. **`commands/vocal/search.py:53-66`** — Der Playlist-URL-Pfad ruft `playlist_tracks()` direkt auf und verarbeitet ausschließlich `playlist_tracks["items"]`; `next` wird nie verfolgt. Spotipy verwendet hier standardmäßig `limit=50`. `/search` und „Play all“ schneiden Playlists mit mehr als 50 Einträgen daher bestätigt ab.
+2. **`commands/vocal/sp_playlist.py:125-129`** — `current_user_playlists()` wird genau einmal aufgerufen und nur dessen erste Seite ausgewertet (Spotipy-Standard: 50). Spätere Playlist-Seiten eines Kontos sind nicht auswählbar. Der Fix muss API-Pagination mit UI-Pagination bzw. Begrenzung des Discord-Selects (`commands/vocal/sp_playlist.py:28-40`) kombinieren.
 
-## Teststrategie
+### Geprüft und abgedeckt
 
-- Startup-Idempotenz: `on_ready`/Initialisierung zweimal auslösen; genau eine SpotifySessions-Instanz, ein Listener und ein Cache-Loop dürfen existieren.
-- Cache-Regression: blockierender Fake-Librespot-Stream, dessen `close()` den Read freigibt. Nach `Track.close()` müssen Cache-Task und Worker innerhalb eines kurzen Timeouts beendet sein; ohne Fix hängt der Test.
-- Session-Race: alte Session ersetzen, deren Cleanup verzögern, dann abschließen lassen. Der Manager muss weiterhin exakt auf die neue Session zeigen.
-- Stop-Timeout: Fake-VoiceClient ruft den `after`-Callback nie auf. `stop_playback`/`clean_session` müssen begrenzt zurückkehren und FFmpeg-Cleanup auslösen.
-- Event-Loop-Reaktivität: während eines hängenden Fake-FFmpeg-Cleanups einen 50-ms-Sentinel und den `/ping`-Handler ausführen; der Sentinel darf nicht aussetzen.
-- Linux-Integration: Testprozess mit Fake/echtem kurzlebigem FFmpeg starten, SIGTERM senden und prüfen, dass Parent und Kinder deutlich vor `TimeoutStopSec=30` verschwinden.
+- **`bot/vocal/spotify.py:137,240-248`** — Instanzweiter `asyncio.Lock` umfasst den vollständigen einzigen `content_feeder().load(...)`-Aufruf.
+- **`bot/vocal/spotify.py:222`, `bot/vocal/spotify.py:260`, `bot/health/audio_probe.py:90`** — Keepalive, Wiedergabe und Health-Probe rufen ausschließlich den verriegelten `Librespot.get_stream()`-Pfad auf; kein direkter Feeder-Bypass gefunden.
+- **`bot/vocal/spotify.py:353-373`** — Standard-Playlists und „Liked Songs“ folgen `sp_.next(...)` bis `next` leer ist.
+- **`bot/vocal/audio_service_handlers.py:74-83`, `commands/vocal/sp_playlist.py:49-55`, `bot/utils.py:677`, `commands/download/spotify_download.py:48`, `commands/vocal/lyrics.py:83`** — Diese Produktionsverbraucher verwenden den zentralen `Spotify.get_tracks()`-Pfad. Die Playlist-Metadatenabfrage in `commands/vocal/search.py:50-52` benötigt selbst keine Track-Pagination.
 
-## Ähnliche Muster
+## Verwendete Befehle und Tests
 
-- `commands/download/spotify_download.py:58-65`: Librespot-Stream wird vollständig in `to_thread` gelesen, aber nie in `finally` geschlossen.
-- `deezer_decryption/api.py:33-40`: losgelöster endloser Refresh-Task ohne Referenz; `httpx.AsyncClient` aus `deezer_decryption/api.py:21` wird nicht geschlossen.
-- `deezer_decryption/chunked_input_stream.py:21-22`: globale HTTP-Clients ohne globalen Shutdown.
-- `main.py:50-58`: erneutes `on_ready` ersetzt `bot.spotify`/`bot.deezer`; alte Instanzen und deren Tasks bleiben erreichbar über ihre laufenden Tasks/Threads.
-- Viele fire-and-forget `create_task`-Aufrufe sind nicht ursächlich gleich kritisch, aber die Voice-Pfade in `bot/vocal/session_manager.py:44-62` und `bot/vocal/track_dataclass.py:222-242` benötigen Ownership und Fehlerbeobachtung.
-- `requirements.txt:1-3` pinnt weder Pycord noch den Librespot-Git-Commit exakt; dadurch ist das konkrete Subprozess-/Shutdown-Verhalten in Production nicht reproduzierbar festgelegt.
+- Native Grep-/AST-Scans über `bot/**/*.py` und `commands/**/*.py` nach `content_feeder`, `get_stream`, `playlist_tracks`, `current_user_playlists`, `current_user_saved_tracks` und `next`; Serena-MCP war in dieser Sitzung nicht verbunden, `rg` nicht installiert.
+- `venv\Scripts\python.exe -m unittest tests.test_spotify -v` — **2/2 bestanden**.
+- `venv\Scripts\python.exe -m unittest tests.test_spotify tests.test_audio_probe tests.test_main_initialization -v` — **19/19 bestanden**.
+- `venv\Scripts\python.exe -c "import inspect, spotipy; ..."` — bestätigte `playlist_tracks(..., limit=50, ...)` und `current_user_playlists(limit=50, ...)`.
+- `git diff -- bot/vocal/spotify.py commands/vocal/search.py commands/vocal/sp_playlist.py tests/test_spotify.py` und `git diff --check` — bestehende Fix-Differenz geprüft; Diff-Check erfolgreich (nur LF/CRLF-Hinweise).
+- `oma state:verify --workflow review --checkpoint severity-classification` — Entscheidung vorhanden.
 
-## Reproduktion und Evidenzgrenzen
+## Geänderte Dateien
 
-- Keine vorhandenen Tests gefunden; lokales `python` enthält `discord` nicht, daher kein vollständiger Botstart.
-- Isoliert bestätigt: Cancellation eines `asyncio.to_thread`-Tasks stoppt den Worker nicht; `ThreadPoolExecutor`-Worker sind nicht daemonisiert.
-- Keine Production-Logs, PID-Bäume oder Thread-Dumps lagen im Workspace vor. Die Diagnose ist deshalb code- und beobachtungsbasiert; der Cache-/Lifecycle-Leak ist direkt belegt, während der genaue erste Event-Loop-Blocker ohne Stackdump nicht eindeutig zwischen synchronem FFmpeg-Cleanup und Ressourcenerschöpfung unterschieden werden kann.
+- `.agents/results/result-debug.md` — dieser Prüfbericht.
+- Kein Produktions- oder Testcode durch diesen Scan geändert. `oma state:emit` schrieb ausschließlich Workflow-Laufzustand unter `.agents/state/`.
 
-## Files changed
+## Acceptance Criteria
 
-- Nur dieses vorgeschriebene Ergebnisartefakt: `.agents/results/result-debug.md`
-- Keine Anwendungs-, Konfigurations- oder Testdateien geändert.
-- Bereits vor der Untersuchung vorhanden: modifiziertes `config.py` sowie unversionierte `.agents/`, `.opencode/`, `.serena/`, `deploy/`.
-
-## Acceptance criteria checklist
-
-- [x] Prozess-, Subprocess- und asyncio-Verwaltung mit konkreten Referenzen untersucht
-- [x] Ursache der Kindprozess-/Thread-Akkumulation beschrieben
-- [x] Pfad zu blockierten Interaktionen und Shutdown-Timeout beschrieben
-- [x] Minimalen Fix und Production-Mitigation vorgeschlagen
-- [x] Regressionsteststrategie angegeben
-- [x] Ähnliche Muster repositoryweit gescannt
-- [x] Keine Anwendungsdateien geändert
+- [x] Alle Produktionsreferenzen auf `content_feeder().load` und `get_stream()` erfasst.
+- [x] Alle Spotify-Playlist-/Liked-Songs-Abrufe und Produktionsverbraucher erfasst.
+- [x] Verbleibende bestätigte Schwachstellen mit Datei und Zeile benannt.
+- [x] Fixbedarf eindeutig bewertet: zwei Pagination-Fixes erforderlich, kein weiterer Librespot-Concurrency-Fix.
+- [x] Relevante Regressionstests ausgeführt.
+- [x] Kein Produktions- oder Testcode geändert.
