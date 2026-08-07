@@ -10,7 +10,7 @@
       ]
     },
     "serena": {
-      "command": "C:/Users/visimeos/.local/bin/serena.exe",
+      "command": "C:/Users/phili/.local/bin/serena.exe",
       "args": [
         "start-mcp-server",
         "--context=ide",

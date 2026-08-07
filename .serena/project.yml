@@ -1,8 +1,5 @@
 languages:
 - python
-- typescript
-- dart
-- terraform
 
 encoding: "utf-8"
 ignore_all_files_in_gitignore: true
@@ -11,7 +8,7 @@ ignored_paths:
 read_only: false
 excluded_tools: []
 initial_prompt: ""
-project_name: "C:\Users\phili\Projects\Ugoku-v2"
+project_name: 'C:\Users\phili\Projects\Ugoku-v2'
 included_optional_tools: []
 base_modes:
 default_modes:
