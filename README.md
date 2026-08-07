@@ -1,90 +1,109 @@
 <div align="center">
   <a href="https://www.pixiv.net/en/artworks/130821036">
-      <img src="https://i.imgur.com/WvyRtdu.png" alt="Illustration by Arren">
+    <img src="https://i.imgur.com/WvyRtdu.png" alt="Illustration by Arren">
   </a>
-  <p>Art by Arren !</p>
+  <p>Art by Arren</p>
   <h1>Ugoku-v2 Discord Bot</h1>
 </div>
 
-**A work in progress rework of [Ugoku !](https://github.com/Shewiiii/Ugoku-bot)**, completely refactored and feature complete !  
-Learn more about the bot here: https://ugoku.app/.
+Ugoku-v2 is a Discord bot with music, voice, chatbot, and utility features.
+This repository is a fork and rework of
+[Shewiiii/Ugoku-bot](https://github.com/Shewiiii/Ugoku-bot), not the original
+Ugoku project.
 
+**Thank you to [Shewiiii](https://github.com/Shewiiii) for the original
+Ugoku-bot project and the foundation this fork continues to build on.**
 
-<h2>Requirements</h2>
+Current repository:
 
-- Python 3.12.x / 3.13.x
-- A Discord bot token (get one [here](https://discord.com/developers/applications))
-- FFmpeg
+- GitHub: [Melivo/Ugoku-v2](https://github.com/Melivo/Ugoku-v2)
 
-Music bot:
+## Features
 
-- A Spotify app (get one [here](https://developer.spotify.com/)).
-- A Deezer Premium or Spotify Premium account.
-- (Optional) An Imgur API key (get one [here](https://imgur.com/account/settings/apps)), to display the cover art for songs from custom sources.
+- Discord slash commands for music playback and voice queues.
+- Spotify playback through Librespot and the Spotify Web API, including playlist
+  support and complete playlist pagination.
+- Optional Deezer playback and download commands for Spotify and Deezer.
+- Lyrics, queue management, audio effects, and custom audio sources.
+- Optional Gemini chatbot with history and Google Search; OpenAI and Pinecone
+  integrations can be enabled when needed.
+- Translation, JPDB vocabulary lookup, Danbooru search, and other utility
+  commands.
+- Restricted `/health` command for server administrators and systemd-based
+  production monitoring.
 
-Chatbot:
+## Requirements
 
-- A Gemini API key (get one [here](https://aistudio.google.com))
-- (Optional) A Pinecone API key for long-term memory
+- Python 3.12.x or 3.13.x
+- FFmpeg available on `PATH`
+- A Discord bot token
+- Credentials for enabled integrations, such as Spotify, Deezer, Gemini,
+  Pinecone, OpenAI, Imgur, or Musixmatch
 
-<h2>Quick setup guide</h2>
+All environment variables are documented in [`.env.template`](.env.template).
+Real credentials belong only in a local `.env` file and must never be committed.
 
-- Install FFmpeg. You can follow [this guide](https://www.geeksforgeeks.org/how-to-install-ffmpeg-on-windows/) if you are on a Windows machine.
-- Copy the repo.
-- Create a virtual environment.
+## Local Setup
 
-```bash
-python -m venv venv
-```
+1. Clone the repository and enter the project directory.
+2. Create and activate a virtual environment:
 
-OR
+   ```bash
+   python -m venv venv
+   # Windows PowerShell
+   .\venv\Scripts\Activate.ps1
+   # Linux/macOS
+   source venv/bin/activate
+   ```
 
-```bash
-python3 -m venv venv
-```
+3. Install dependencies:
 
-- Enable the venv.
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-Windows:
+4. Copy `.env.template` to `.env` and set only the values needed for the
+   enabled services.
+5. Adjust feature switches in [`config.py`](config.py).
+6. Create a Discord application and bot in the
+   [Discord Developer Portal](https://discord.com/developers/applications),
+   invite it to the target server, then start the bot:
 
-```bash
-./venv/Scripts/activate.bat
-```
+   ```bash
+   python main.py
+   ```
 
-Linux:
+7. When Spotify playback is enabled, select the Librespot device in the Spotify
+   app. This creates `credentials.json` locally. It is sensitive and must never
+   be committed.
 
-```bash
-source venv/bin/activate
-```
+## Production
 
-- Install the dependencies.
+The systemd units are located in [`deploy/`](deploy/). The primary service uses
+a watchdog and restarts on failure. The health timer checks gateway,
+slash-command, audio, and Spotify readiness, event-loop lag, and blocked
+resources.
 
-```bash
-pip install -r requirements.txt
-```
-
-On the legacy Linux production host, install with its CPU compatibility
-constraint and verify the resolved NumPy version before starting the units:
+The legacy Linux host requires the CPU-compatible NumPy version:
 
 ```bash
 pip install -r requirements.txt -c deploy/constraints-linux-legacy-cpu.txt
 python -c "import numpy; assert numpy.__version__ == '2.1.3'"
 ```
 
-- [Create a bot and add it to a Discord server](https://guide.pycord.dev/getting-started/creating-your-first-bot), or add it to your apps. You can follow the first 3 sections of the guide.
-- Create an .env file in the root directory.
-- Set the environment variables for the services you want to use, based on the template.
-- Restart the IDE (to update the env variables).
-- On linux machines, you may want to switch the protobuf implementation to Python if the .env variable has been ignored by doing so:
-```bash
-echo 'export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python' >> ~/.bashrc
-source ~/.bashrc
-```
-You can now restart your instance.
-- Configure and activate the features in the config.py file.
-- Run `main.py`.
-- If Spotify is enabled, log in to Librespot from your Spotify client (it should appear in the device list)\*.
-- Done !
+The complete installation, deployment, recovery, and healthcheck procedure is
+documented in
+[`docs/runbooks/bot-produktionsueberwachung.md`](docs/runbooks/bot-produktionsueberwachung.md).
 
-> [!TIP]
-> \*This action will create a `credentials.json` file in the root folder. If you are having trouble creating it on a remote machine, try creating it on your local machine and exporting it.
+## Configuration
+
+- [`.env.template`](.env.template): environment-variable names and optional
+  integrations.
+- [`config.py`](config.py): feature switches and runtime configuration.
+- [`deploy/`](deploy/): systemd units, healthcheck timer, and legacy CPU
+  constraint.
+
+## License
+
+This project is licensed under the [GNU GPL v3](LICENSE). Observe the license
+terms of the original project and all included dependencies.
