@@ -16,3 +16,8 @@ ytdlp_cache.sqlite
 
 # oma docs generated artifacts
 docs/generated/
+
+# Generated agent outputs and local test coverage.
+.agents/results/
+.agents/state/
+.coverage

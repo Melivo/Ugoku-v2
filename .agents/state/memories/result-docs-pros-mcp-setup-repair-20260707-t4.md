@@ -1,5 +1,0 @@
-Status: done
-Summary: Synced Microsoft Graph setup docs to the current contract. Standard redirect URI now consistently documented as `http://localhost:53682/oauth/microsoft/callback`; `PROS_MICROSOFT_CLIENT_ID` is documented as coming from Azure App Registration; `PROS_MICROSOFT_TENANT_ID` and `PROS_MICROSOFT_REDIRECT_URI` are documented as optional; `AADSTS700016` is documented as an Azure app/tenant/client-ID issue, not a MCP client-config issue.
-Files changed: README.md; docs/CLI-MCP-COMMANDS.md; docs/MCP-CREDENTIALS.md; docs/pros-hilfe-src/endnutzerhandbuch.md; runtime/pros/.agents/workflows/werkzeuge-mcp-einrichtung.md
-Checks: oma docs verify --json => scannedDocs 997, totalRefs 5274, skippedCount 203, brokenCount 325 (mostly unrelated repo-wide drift); targeted greps for legacy redirects and Graph setup terms no longer show the old Microsoft Graph redirect values in scope docs.
-Acceptance criteria: 1) met 2) met 3) met 4) met

@@ -1,1 +1,0 @@
-{"eventId":"00mrl06c4dp0w5o3o0","ts":"2026-07-14T18:46:58.525Z","sid":"plan-pros-global-mcp-runtime-20260714","kind":"decision.made","writerPid":33260,"payload":{"subject":"plan.api-contract","decision":"Use approved global Pros MCP configuration contract.","rationale":"Prevents CWD files and unvalidated shell expansion."}}
