@@ -5,6 +5,7 @@ import discord
 from typing import Optional
 from bot.vocal.onsei import Onsei
 from bot.vocal.server_session import ServerSession
+from bot.vocal.voice_client import UgokuVoiceClient
 
 onsei = Onsei()
 
@@ -42,7 +43,7 @@ class SessionManager:
         connect_task = None
 
         if not ctx.voice_client or not ctx.voice_client.is_connected():
-            connect_task = asyncio.create_task(channel.connect())
+            connect_task = asyncio.create_task(channel.connect(cls=UgokuVoiceClient))
             # Clean server session after a new connection
             old_session: ServerSession = self.server_sessions.pop(guild_id, None)
             if old_session:

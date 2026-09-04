@@ -15,6 +15,7 @@ from bot.vocal.queue_view import QueueView
 from bot.vocal.now_playing_view import nowPlayingView
 from bot.vocal.wrong_track_view import WrongTrackView
 from bot.vocal.track_dataclass import Track
+from bot.vocal.voice_client import UgokuVoiceClient
 from config import (
     AUTO_LEAVE_DURATION,
     DEFAULT_AUDIO_VOLUME,
@@ -107,7 +108,7 @@ class ServerSession:
                 if self.voice_client:
                     await self.voice_client.disconnect()
                 channel = self.bot.get_channel(self.voice_channel_id)
-                self.voice_client = await channel.connect()
+                self.voice_client = await channel.connect(cls=UgokuVoiceClient)
 
     async def display_queue(
         self, ctx: discord.ApplicationContext, defer_task: asyncio.Task
