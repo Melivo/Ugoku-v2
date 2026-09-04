@@ -43,7 +43,9 @@ class SystemdUnitStaticTests(unittest.TestCase):
             ROOT / "deploy" / "constraints-linux-legacy-cpu.txt"
         ).read_text(encoding="utf-8")
 
+        requirements = (ROOT / "requirements.txt").read_text(encoding="utf-8")
         self.assertIn("numpy==2.1.3", constraint)
+        self.assertIn("py-cord[voice]>=2.8.1,<3.0.0", requirements.splitlines())
         for documented_install_path in (service, runbook, readme):
             with self.subTest(path=documented_install_path[:40]):
                 self.assertIn("-r requirements.txt", documented_install_path)

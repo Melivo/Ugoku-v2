@@ -1,4 +1,4 @@
-py-cord[voice]<3.0.0
+py-cord[voice]>=2.8.1,<3.0.0
 spotipy>=2.11.0
 git+https://github.com/Shewiiii/librespot-python
 requests
