@@ -33,7 +33,7 @@ pruefen und den Dienst neu starten:
 ```sh
 ssh leadt3ch@automation
 cd /home/leadt3ch/ugoku
-git pull --ff-only origin fix/spotify-playlist-oauth
+git pull --ff-only origin main
 /home/leadt3ch/.local/bin/uv pip install \
   --python /home/leadt3ch/ugoku/venv/bin/python \
   -r requirements.txt \
