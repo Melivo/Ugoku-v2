@@ -93,6 +93,7 @@ class ServerSession:
         self.stop_event: Optional[asyncio.Event] = None
         self.wrong_track_views: list[WrongTrackView] = []
         self.ffmpeg_sources: deque[discord.FFmpegOpusAudio] = deque([])
+        self.ffmpeg_cleanup_lock = asyncio.Lock()
         self.dummy_load = None
 
     async def wait_for_connect_task(self) -> None:
@@ -629,38 +630,39 @@ class ServerSession:
     async def clean_ffmpeg_sources(self, deadline: float | None = None) -> None:
         from bot.health.cleanup import cleanup_with_deadline
 
-        deadline = deadline or (monotonic() + HEALTH_FORCE_CLEANUP_BUDGET)
-        sources = []
-        source_active = bool(
-            self.voice_client
-            and (
-                self.voice_client.is_playing()
-                or getattr(self.voice_client, "is_paused", lambda: False)()
+        async with self.ffmpeg_cleanup_lock:
+            deadline = deadline or (monotonic() + HEALTH_FORCE_CLEANUP_BUDGET)
+            sources = []
+            source_active = bool(
+                self.voice_client
+                and (
+                    self.voice_client.is_playing()
+                    or getattr(self.voice_client, "is_paused", lambda: False)()
+                )
             )
-        )
-        if (
-            not self.voice_client
-            or not self.voice_client.is_connected()
-            or not source_active
-        ):
-            sources.extend(self.ffmpeg_sources)
+            if (
+                not self.voice_client
+                or not self.voice_client.is_connected()
+                or not source_active
+            ):
+                sources.extend(self.ffmpeg_sources)
 
-        elif source_active:
-            sources.extend(list(self.ffmpeg_sources)[:-1])
+            elif source_active:
+                sources.extend(list(self.ffmpeg_sources)[:-1])
 
-        for source in sources:
-            # Keep the source discoverable until cleanup and child reaping have
-            # succeeded; force-cleanup can still find it after a timeout/error.
-            await cleanup_with_deadline(
-                source,
-                source.cleanup,
-                deadline,
-                "FFmpeg source",
-            )
-            try:
-                self.ffmpeg_sources.remove(source)
-            except ValueError:
-                pass
+            for source in sources:
+                # Keep the source discoverable until cleanup and child reaping have
+                # succeeded; force-cleanup can still find it after a timeout/error.
+                await cleanup_with_deadline(
+                    source,
+                    source.cleanup,
+                    deadline,
+                    "FFmpeg source",
+                )
+                try:
+                    self.ffmpeg_sources.remove(source)
+                except ValueError:
+                    pass
 
     async def create_cleanup_task(self) -> None:
         """Checks for inactivity and automatically disconnects from the voice channel if inactive.

@@ -1,7 +1,8 @@
 import asyncio
-import unittest
 import subprocess
 import sys
+import threading
+import unittest
 from collections import deque
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
@@ -38,6 +39,7 @@ class ServerSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
         session = object.__new__(ServerSession)
         source = SimpleNamespace(cleanup=Mock())
         session.ffmpeg_sources = deque([source])
+        session.ffmpeg_cleanup_lock = asyncio.Lock()
         session.voice_client = SimpleNamespace(
             is_connected=lambda: True,
             is_playing=lambda: False,
@@ -70,6 +72,7 @@ class ServerSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
         session.dummy_load = None
         session.close_streams = AsyncMock()
         session.ffmpeg_sources = deque([source])
+        session.ffmpeg_cleanup_lock = asyncio.Lock()
         session.bot = object()
         session.deezer_download = None
 
@@ -103,6 +106,7 @@ class ServerSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
         session.dummy_load = None
         session.close_streams = AsyncMock()
         session.ffmpeg_sources = deque([source])
+        session.ffmpeg_cleanup_lock = asyncio.Lock()
         session.bot = object()
         session.deezer_download = None
 
@@ -111,3 +115,27 @@ class ServerSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(list(session.ffmpeg_sources), [source])
         self.assertIs(manager.server_sessions[11], session)
+
+    async def test_concurrent_ffmpeg_cleanup_only_cleans_source_once(self):
+        cleanup_started = threading.Event()
+        allow_cleanup = threading.Event()
+
+        def cleanup():
+            cleanup_started.set()
+            allow_cleanup.wait(timeout=1)
+
+        session = object.__new__(ServerSession)
+        source = SimpleNamespace(cleanup=Mock(side_effect=cleanup))
+        session.ffmpeg_sources = deque([source])
+        session.ffmpeg_cleanup_lock = asyncio.Lock()
+        session.voice_client = None
+
+        first_cleanup = asyncio.create_task(session.clean_ffmpeg_sources())
+        self.assertTrue(await asyncio.to_thread(cleanup_started.wait, 1))
+        second_cleanup = asyncio.create_task(session.clean_ffmpeg_sources())
+        await asyncio.sleep(0)
+        allow_cleanup.set()
+        await asyncio.gather(first_cleanup, second_cleanup)
+
+        source.cleanup.assert_called_once_with()
+        self.assertEqual(list(session.ffmpeg_sources), [])
