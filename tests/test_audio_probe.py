@@ -110,7 +110,9 @@ class AudioProbeTests(unittest.IsolatedAsyncioTestCase):
         with patch("bot.health.audio_probe.SPOTIFY_ENABLED", True), patch(
             "bot.health.audio_probe.discord.FFmpegOpusAudio"
         ) as ffmpeg:
-            result = await probe_audio(bot, timeout=0.2, bytes_to_read=4)
+            result = await probe_audio(
+                bot, timeout=0.2, bytes_to_read=4, track_id=None
+            )
         self.assertFalse(result.ok)
         self.assertEqual(result.service, "spotify")
         self.assertIn("no configured or discoverable Spotify probe track", result.error)
@@ -167,7 +169,9 @@ class AudioProbeTests(unittest.IsolatedAsyncioTestCase):
         ) as from_uri, patch(
             "bot.health.audio_probe.discord.FFmpegOpusAudio", return_value=source
         ):
-            result = await probe_audio(bot, timeout=0.3, bytes_to_read=4)
+            result = await probe_audio(
+                bot, timeout=0.3, bytes_to_read=4, track_id=None
+            )
 
         self.assertTrue(result.ok)
         spotify_api.search.assert_called_once_with(q="*", type="track", limit=1)
