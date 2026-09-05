@@ -75,7 +75,7 @@ HEALTH_ALERT_TIMEOUT: float = 5.0
 # RESOURCE_BLOCKED predicate thresholds.
 HEALTH_FFMPEG_ORPHAN_THRESHOLD: int = 0
 HEALTH_VOICE_CONNECT_STUCK_S: int = 30
-HEALTH_LIBRESPOT_STALE_S: int = 60
+HEALTH_LIBRESPOT_STALE_S: int = 240
 
 # End-to-end recovery SLA and the upper bound assigned to each operation.
 HEALTH_SLA_TOTAL_S: int = 300

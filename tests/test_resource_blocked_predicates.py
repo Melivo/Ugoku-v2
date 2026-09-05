@@ -101,7 +101,7 @@ class ResourceBlockedPredicateTests(unittest.IsolatedAsyncioTestCase):
             spotify_sessions = SimpleNamespace(
                 lp=SimpleNamespace(session=object()),
                 listener_task=listener,
-                listener_last_beat_monotonic=time.monotonic() - 120,
+                listener_last_beat_monotonic=time.monotonic() - 300,
             )
             with self.subTest(done=listener.done()), patch(
                 "bot.health.monitor.SPOTIFY_ENABLED", True

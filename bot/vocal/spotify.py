@@ -5,6 +5,7 @@ import os
 import re
 from datetime import datetime
 from pathlib import Path
+from time import monotonic
 from typing import Optional
 from concurrent.futures import ThreadPoolExecutor
 
@@ -221,6 +222,7 @@ class Librespot:
                         # Simulate a track play
                         stream = await self.get_stream(track_id)
                         await asyncio.to_thread(stream.read, 1)
+                        self.listener_last_beat_monotonic = monotonic()
                         await asyncio.sleep(SPOTIFY_REFRESH_INTERVAL)
                     except Exception as e:
                         logging.error(f"Stream read error: {repr(e)}")

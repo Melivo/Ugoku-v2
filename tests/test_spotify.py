@@ -4,7 +4,7 @@ import threading
 import time
 import unittest
 from types import SimpleNamespace
-from unittest.mock import Mock, call, patch
+from unittest.mock import AsyncMock, Mock, call, patch
 
 os.environ.setdefault("PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION", "python")
 
@@ -53,6 +53,31 @@ class LibrespotStreamTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(feeder.max_in_flight, 1)
         self.assertEqual(streams, [f"stream:{track_id}" for track_id in track_ids])
+
+    async def test_listener_refreshes_heartbeat_after_successful_read(self):
+        librespot = Librespot()
+        stream = SimpleNamespace(read=Mock(return_value=b"x"))
+        started = time.monotonic()
+
+        try:
+            with (
+                patch.object(
+                    librespot,
+                    "get_stream",
+                    AsyncMock(return_value=stream),
+                ),
+                patch(
+                    "bot.vocal.spotify.asyncio.sleep",
+                    AsyncMock(side_effect=asyncio.CancelledError),
+                ),
+            ):
+                with self.assertRaises(asyncio.CancelledError):
+                    await librespot.listen_to_session()
+        finally:
+            librespot.executor.shutdown(wait=True, cancel_futures=True)
+
+        self.assertGreaterEqual(librespot.listener_last_beat_monotonic, started)
+        stream.read.assert_called_once_with(1)
 
 
 class SpotifyPlaylistTests(unittest.IsolatedAsyncioTestCase):
